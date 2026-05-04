@@ -1,0 +1,31 @@
+/node_modules
+/.pnp
+.pnp.*
+
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+
+/.next/
+/out/
+/build
+
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+.pnpm-debug.log*
+
+.env*
+!.env.example
+
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# generated Prisma client
+/src/generated/
+
+# uploads, rendered PDFs, e2e artifacts
+/storage/

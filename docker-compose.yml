@@ -1,0 +1,57 @@
+name: leasing
+
+# Postgres and Mailpit sit on an internal network with no route out. The edge container is the
+# only thing on a normal network; it just forwards the three localhost ports to them.
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_USER: leasing
+      POSTGRES_PASSWORD: leasing
+      POSTGRES_DB: leasing
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./prisma/docker-init:/docker-entrypoint-initdb.d:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leasing -d leasing"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    environment:
+      MP_MAX_MESSAGES: 5000
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  edge:
+    image: alpine/socat:1.8.0.3
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        socat TCP-LISTEN:5432,fork,reuseaddr TCP:postgres:5432 &
+        socat TCP-LISTEN:1025,fork,reuseaddr TCP:mailpit:1025 &
+        socat TCP-LISTEN:8025,fork,reuseaddr TCP:mailpit:8025 &
+        wait
+    ports:
+      - "127.0.0.1:${PG_PORT:-5441}:5432"
+      - "127.0.0.1:${SMTP_PORT:-1041}:1025"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8041}:8025"
+    networks: [backend, edge]
+    depends_on:
+      postgres: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+
+networks:
+  backend:
+    internal: true
+  edge: {}
+
+volumes:
+  pgdata:
