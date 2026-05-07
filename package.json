@@ -15,7 +15,7 @@
     "bootstrap": "tsx scripts/bootstrap.ts",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed/index.ts",
-    "db:reset": "prisma migrate reset --force --skip-seed && tsx prisma/seed/index.ts",
+    "db:reset": "tsx scripts/reset-db.ts && tsx prisma/seed/index.ts",
     "pii:rotate": "tsx scripts/pii-rotate.ts",
     "pii:purge": "tsx scripts/pii-purge.ts",
     "postinstall": "prisma generate"
@@ -40,6 +40,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "recharts": "3.10.1",
+    "server-only": "0.0.1",
     "sharp": "0.35.4",
     "sonner": "2.0.8",
     "zod": "4.6.5"

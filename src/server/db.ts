@@ -22,19 +22,14 @@ export function setDb(client: PrismaClient | undefined) {
   g.__leasingDb = client;
 }
 
-/** Postgres SQLSTATE of a Prisma/pg error, if any (23505 unique, 23P01 exclusion). */
+/** Postgres SQLSTATE of a Prisma/pg error, if any (23505 unique, 23P01 exclusion, 40001 serialization). */
 export function pgCode(err: unknown): string | undefined {
-  let e: unknown = err;
-  for (let i = 0; i < 5 && e && typeof e === "object"; i++) {
-    const o = e as Record<string, unknown>;
-    if (typeof o.code === "string" && /^[0-9A-Z]{5}$/.test(o.code)) return o.code;
-    const meta = o.meta as Record<string, unknown> | undefined;
-    const driver = meta?.driverAdapterError as Record<string, unknown> | undefined;
-    const cause = (driver?.cause ?? o.cause) as Record<string, unknown> | undefined;
-    if (cause && typeof cause.originalCode === "string") return cause.originalCode;
-    if (cause && typeof cause.code === "string" && /^[0-9A-Z]{5}$/.test(cause.code)) return cause.code;
-    if (o.code === "P2002") return "23505";
-    e = cause ?? o.cause;
-  }
+  if (!err || typeof err !== "object") return undefined;
+  const o = err as { code?: unknown; meta?: { driverAdapterError?: { cause?: { originalCode?: string; code?: string } } } };
+  const cause = o.meta?.driverAdapterError?.cause;
+  if (cause?.originalCode) return cause.originalCode;
+  if (typeof cause?.code === "string" && /^[0-9A-Z]{5}$/.test(cause.code) && !cause.code.startsWith("P")) return cause.code;
+  if (o.code === "P2002") return "23505";
+  if (typeof o.code === "string" && /^[0-9][0-9A-Z]{4}$/.test(o.code)) return o.code; // raw pg errors
   return undefined;
 }
