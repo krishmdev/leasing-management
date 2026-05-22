@@ -6,6 +6,19 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   // Override default ignores of eslint-config-next.
+  {
+    // Domain code goes through tenant clients. Raw SQL there must use tenantRaw(agencyId, tx).
+    files: ["src/server/domain/**/*.ts", "src/app/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[property.name=/^\\$(query|execute)Raw(Unsafe)?$/]",
+          message: "Use tenantRaw(agencyId, tx) from @/server/tenant for raw SQL in domain code.",
+        },
+      ],
+    },
+  },
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",

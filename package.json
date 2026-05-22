@@ -18,7 +18,8 @@
     "db:reset": "tsx scripts/reset-db.ts && tsx prisma/seed/index.ts",
     "pii:rotate": "tsx scripts/pii-rotate.ts",
     "pii:purge": "tsx scripts/pii-purge.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "gen:relations": "tsx scripts/gen-relations.ts && prettier --write src/server/relations.generated.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.77",

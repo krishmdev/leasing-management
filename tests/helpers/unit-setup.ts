@@ -7,5 +7,6 @@ setKeyProvider(
     PII_KEYRING: JSON.stringify({ test1: randomBytes(32).toString("base64") }),
     PII_ACTIVE_KEY_ID: "test1",
     PII_BLIND_INDEX_KEY: randomBytes(32).toString("base64"),
+    TOKEN_KEY: randomBytes(32).toString("base64"),
   }),
 );

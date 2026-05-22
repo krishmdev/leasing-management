@@ -26,7 +26,7 @@ CREATE TYPE "ReferenceStatus" AS ENUM ('SENT', 'OPENED', 'COMPLETED', 'EXPIRED')
 CREATE TYPE "ScreeningStatus" AS ENUM ('PENDING_INVITE', 'INVITED', 'CONSENTED', 'IN_PROGRESS', 'COMPLETE', 'ERROR');
 
 -- CreateEnum
-CREATE TYPE "StepStatus" AS ENUM ('PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED');
+CREATE TYPE "StepStatus" AS ENUM ('PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'DEAD');
 
 -- CreateEnum
 CREATE TYPE "Outcome" AS ENUM ('APPROVE', 'CONDITIONAL', 'DECLINE', 'NEEDS_REVIEW');
@@ -325,7 +325,9 @@ CREATE TABLE "Showing" (
     "icsUid" TEXT NOT NULL,
     "icsSequence" INTEGER NOT NULL DEFAULT 0,
     "manageTokenHash" TEXT NOT NULL,
+    "tokenVersion" INTEGER NOT NULL DEFAULT 1,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "changedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Showing_pkey" PRIMARY KEY ("id")
 );
@@ -397,6 +399,7 @@ CREATE TABLE "ReferenceRequest" (
     "applicationId" TEXT NOT NULL,
     "residenceId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
+    "tokenVersion" INTEGER NOT NULL DEFAULT 1,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "status" "ReferenceStatus" NOT NULL DEFAULT 'SENT',
     "remindersSent" INTEGER NOT NULL DEFAULT 0,
@@ -621,6 +624,7 @@ CREATE TABLE "OutboxMessage" (
     "firstAttemptAt" TIMESTAMPTZ(3),
     "lastAttemptAt" TIMESTAMPTZ(3),
     "transport" TEXT,
+    "renderedSha256" TEXT,
     "providerMessageId" TEXT,
     "error" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -674,6 +678,7 @@ CREATE TABLE "Lease" (
     "endDate" DATE NOT NULL,
     "status" "LeaseStatus" NOT NULL DEFAULT 'DRAFT',
     "signTokenHash" TEXT NOT NULL,
+    "tokenVersion" INTEGER NOT NULL DEFAULT 1,
     "signTokenExpiresAt" TIMESTAMPTZ(3) NOT NULL,
     "sentAt" TIMESTAMPTZ(3),
     "signedAt" TIMESTAMPTZ(3),
@@ -867,7 +872,13 @@ CREATE UNIQUE INDEX "AgencySettings_agencyId_key" ON "AgencySettings"("agencyId"
 CREATE INDEX "Property_agencyId_idx" ON "Property"("agencyId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Property_agencyId_id_key" ON "Property"("agencyId", "id");
+
+-- CreateIndex
 CREATE INDEX "Unit_agencyId_status_idx" ON "Unit"("agencyId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Unit_agencyId_id_key" ON "Unit"("agencyId", "id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Unit_agencyId_slug_key" ON "Unit"("agencyId", "slug");
@@ -876,10 +887,16 @@ CREATE UNIQUE INDEX "Unit_agencyId_slug_key" ON "Unit"("agencyId", "slug");
 CREATE INDEX "Lead_agencyId_idx" ON "Lead"("agencyId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Lead_agencyId_id_key" ON "Lead"("agencyId", "id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Lead_agencyId_emailBidx_key" ON "Lead"("agencyId", "emailBidx");
 
 -- CreateIndex
 CREATE INDEX "Opportunity_agencyId_stage_idx" ON "Opportunity"("agencyId", "stage");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Opportunity_agencyId_id_key" ON "Opportunity"("agencyId", "id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Opportunity_leadId_unitId_key" ON "Opportunity"("leadId", "unitId");
@@ -909,7 +926,13 @@ CREATE INDEX "Showing_agencyId_startsAt_idx" ON "Showing"("agencyId", "startsAt"
 CREATE INDEX "Application_agencyId_status_idx" ON "Application"("agencyId", "status");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Application_agencyId_id_key" ON "Application"("agencyId", "id");
+
+-- CreateIndex
 CREATE INDEX "ResidenceHistory_agencyId_applicationId_idx" ON "ResidenceHistory"("agencyId", "applicationId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ResidenceHistory_agencyId_id_key" ON "ResidenceHistory"("agencyId", "id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ConsentRecord_applicationId_type_key" ON "ConsentRecord"("applicationId", "type");
@@ -918,10 +941,19 @@ CREATE UNIQUE INDEX "ConsentRecord_applicationId_type_key" ON "ConsentRecord"("a
 CREATE UNIQUE INDEX "ReferenceRequest_tokenHash_key" ON "ReferenceRequest"("tokenHash");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "ReferenceRequest_agencyId_id_key" ON "ReferenceRequest"("agencyId", "id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ReferenceRequest_applicationId_residenceId_key" ON "ReferenceRequest"("applicationId", "residenceId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ReferenceResponse_referenceRequestId_key" ON "ReferenceResponse"("referenceRequestId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ReferenceResponse_agencyId_referenceRequestId_key" ON "ReferenceResponse"("agencyId", "referenceRequestId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ScreeningCriteria_agencyId_id_key" ON "ScreeningCriteria"("agencyId", "id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ScreeningCriteria_agencyId_version_key" ON "ScreeningCriteria"("agencyId", "version");
@@ -933,6 +965,9 @@ CREATE UNIQUE INDEX "ScreeningRequest_idempotencyKey_key" ON "ScreeningRequest"(
 CREATE UNIQUE INDEX "ScreeningRequest_providerApplicantRef_key" ON "ScreeningRequest"("providerApplicantRef");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "ScreeningRequest_agencyId_id_key" ON "ScreeningRequest"("agencyId", "id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ScreeningRequest_applicationId_criteriaVersionId_key" ON "ScreeningRequest"("applicationId", "criteriaVersionId");
 
 -- CreateIndex
@@ -940,6 +975,9 @@ CREATE UNIQUE INDEX "WebhookEvent_provider_eventId_key" ON "WebhookEvent"("provi
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ScreeningResult_screeningRequestId_key" ON "ScreeningResult"("screeningRequestId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ScreeningResult_agencyId_screeningRequestId_key" ON "ScreeningResult"("agencyId", "screeningRequestId");
 
 -- CreateIndex
 CREATE INDEX "AgentStep_agencyId_idx" ON "AgentStep"("agencyId");
@@ -969,6 +1007,9 @@ CREATE INDEX "ApprovalTask_agencyId_status_idx" ON "ApprovalTask"("agencyId", "s
 CREATE UNIQUE INDEX "AdverseActionNotice_applicationId_key" ON "AdverseActionNotice"("applicationId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "AdverseActionNotice_agencyId_applicationId_key" ON "AdverseActionNotice"("agencyId", "applicationId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "OutboxMessage_idempotencyKey_key" ON "OutboxMessage"("idempotencyKey");
 
 -- CreateIndex
@@ -990,10 +1031,19 @@ CREATE UNIQUE INDEX "UnitHold_applicationId_key" ON "UnitHold"("applicationId");
 CREATE INDEX "UnitHold_unitId_status_idx" ON "UnitHold"("unitId", "status");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UnitHold_agencyId_applicationId_key" ON "UnitHold"("agencyId", "applicationId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Lease_applicationId_key" ON "Lease"("applicationId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Lease_signTokenHash_key" ON "Lease"("signTokenHash");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Lease_agencyId_id_key" ON "Lease"("agencyId", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Lease_agencyId_applicationId_key" ON "Lease"("agencyId", "applicationId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Signature_leaseId_signerId_key" ON "Signature"("leaseId", "signerId");
@@ -1005,7 +1055,16 @@ CREATE UNIQUE INDEX "Residency_leaseId_key" ON "Residency"("leaseId");
 CREATE INDEX "Residency_agencyId_status_idx" ON "Residency"("agencyId", "status");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Residency_agencyId_id_key" ON "Residency"("agencyId", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Residency_agencyId_leaseId_key" ON "Residency"("agencyId", "leaseId");
+
+-- CreateIndex
 CREATE INDEX "MaintenanceTicket_agencyId_status_idx" ON "MaintenanceTicket"("agencyId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MaintenanceTicket_agencyId_id_key" ON "MaintenanceTicket"("agencyId", "id");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_agencyId_createdAt_idx" ON "AuditLog"("agencyId", "createdAt");
@@ -1035,101 +1094,119 @@ ALTER TABLE "invitation" ADD CONSTRAINT "invitation_inviterId_fkey" FOREIGN KEY 
 ALTER TABLE "AgencySettings" ADD CONSTRAINT "AgencySettings_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Property" ADD CONSTRAINT "Property_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Property" ADD CONSTRAINT "Property_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Unit" ADD CONSTRAINT "Unit_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Unit" ADD CONSTRAINT "Unit_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Unit" ADD CONSTRAINT "Unit_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Unit" ADD CONSTRAINT "Unit_agencyId_propertyId_fkey" FOREIGN KEY ("agencyId", "propertyId") REFERENCES "Property"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "Lead"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_agencyId_leadId_fkey" FOREIGN KEY ("agencyId", "leadId") REFERENCES "Lead"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Opportunity" ADD CONSTRAINT "Opportunity_agencyId_unitId_fkey" FOREIGN KEY ("agencyId", "unitId") REFERENCES "Unit"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "StageEvent" ADD CONSTRAINT "StageEvent_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "StageEvent" ADD CONSTRAINT "StageEvent_agencyId_opportunityId_fkey" FOREIGN KEY ("agencyId", "opportunityId") REFERENCES "Opportunity"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "IndicationOfInterest" ADD CONSTRAINT "IndicationOfInterest_opportunityId_fkey" FOREIGN KEY ("opportunityId") REFERENCES "Opportunity"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "IndicationOfInterest" ADD CONSTRAINT "IndicationOfInterest_agencyId_opportunityId_fkey" FOREIGN KEY ("agencyId", "opportunityId") REFERENCES "Opportunity"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Showing" ADD CONSTRAINT "Showing_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Showing" ADD CONSTRAINT "Showing_agencyId_unitId_fkey" FOREIGN KEY ("agencyId", "unitId") REFERENCES "Unit"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Showing" ADD CONSTRAINT "Showing_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "Lead"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Showing" ADD CONSTRAINT "Showing_agencyId_leadId_fkey" FOREIGN KEY ("agencyId", "leadId") REFERENCES "Lead"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Application" ADD CONSTRAINT "Application_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "Lead"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Application" ADD CONSTRAINT "Application_agencyId_leadId_fkey" FOREIGN KEY ("agencyId", "leadId") REFERENCES "Lead"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Application" ADD CONSTRAINT "Application_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Application" ADD CONSTRAINT "Application_agencyId_unitId_fkey" FOREIGN KEY ("agencyId", "unitId") REFERENCES "Unit"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Application" ADD CONSTRAINT "Application_criteriaVersionId_fkey" FOREIGN KEY ("criteriaVersionId") REFERENCES "ScreeningCriteria"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Application" ADD CONSTRAINT "Application_agencyId_criteriaVersionId_fkey" FOREIGN KEY ("agencyId", "criteriaVersionId") REFERENCES "ScreeningCriteria"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ResidenceHistory" ADD CONSTRAINT "ResidenceHistory_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ResidenceHistory" ADD CONSTRAINT "ResidenceHistory_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConsentRecord" ADD CONSTRAINT "ConsentRecord_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConsentRecord" ADD CONSTRAINT "ConsentRecord_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ReferenceRequest" ADD CONSTRAINT "ReferenceRequest_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReferenceRequest" ADD CONSTRAINT "ReferenceRequest_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ReferenceRequest" ADD CONSTRAINT "ReferenceRequest_residenceId_fkey" FOREIGN KEY ("residenceId") REFERENCES "ResidenceHistory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReferenceRequest" ADD CONSTRAINT "ReferenceRequest_agencyId_residenceId_fkey" FOREIGN KEY ("agencyId", "residenceId") REFERENCES "ResidenceHistory"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ReferenceResponse" ADD CONSTRAINT "ReferenceResponse_referenceRequestId_fkey" FOREIGN KEY ("referenceRequestId") REFERENCES "ReferenceRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReferenceResponse" ADD CONSTRAINT "ReferenceResponse_agencyId_referenceRequestId_fkey" FOREIGN KEY ("agencyId", "referenceRequestId") REFERENCES "ReferenceRequest"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ScreeningRequest" ADD CONSTRAINT "ScreeningRequest_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ScreeningRequest" ADD CONSTRAINT "ScreeningRequest_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ScreeningResult" ADD CONSTRAINT "ScreeningResult_screeningRequestId_fkey" FOREIGN KEY ("screeningRequestId") REFERENCES "ScreeningRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ScreeningResult" ADD CONSTRAINT "ScreeningResult_agencyId_screeningRequestId_fkey" FOREIGN KEY ("agencyId", "screeningRequestId") REFERENCES "ScreeningRequest"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AgentStep" ADD CONSTRAINT "AgentStep_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AgentStep" ADD CONSTRAINT "AgentStep_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Recommendation" ADD CONSTRAINT "Recommendation_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Recommendation" ADD CONSTRAINT "Recommendation_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Decision" ADD CONSTRAINT "Decision_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Decision" ADD CONSTRAINT "Decision_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UnitHold" ADD CONSTRAINT "UnitHold_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ApprovalTask" ADD CONSTRAINT "ApprovalTask_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UnitHold" ADD CONSTRAINT "UnitHold_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AdverseActionNotice" ADD CONSTRAINT "AdverseActionNotice_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Lease" ADD CONSTRAINT "Lease_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "GeneratedDocument" ADD CONSTRAINT "GeneratedDocument_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Lease" ADD CONSTRAINT "Lease_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "UnitHold" ADD CONSTRAINT "UnitHold_agencyId_unitId_fkey" FOREIGN KEY ("agencyId", "unitId") REFERENCES "Unit"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Signature" ADD CONSTRAINT "Signature_leaseId_fkey" FOREIGN KEY ("leaseId") REFERENCES "Lease"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "UnitHold" ADD CONSTRAINT "UnitHold_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Residency" ADD CONSTRAINT "Residency_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Lease" ADD CONSTRAINT "Lease_agencyId_applicationId_fkey" FOREIGN KEY ("agencyId", "applicationId") REFERENCES "Application"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Residency" ADD CONSTRAINT "Residency_leaseId_fkey" FOREIGN KEY ("leaseId") REFERENCES "Lease"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Lease" ADD CONSTRAINT "Lease_agencyId_unitId_fkey" FOREIGN KEY ("agencyId", "unitId") REFERENCES "Unit"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "MaintenanceTicket" ADD CONSTRAINT "MaintenanceTicket_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Lease" ADD CONSTRAINT "Lease_agencyId_signerId_fkey" FOREIGN KEY ("agencyId", "signerId") REFERENCES "Lead"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TicketPhoto" ADD CONSTRAINT "TicketPhoto_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "MaintenanceTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Signature" ADD CONSTRAINT "Signature_agencyId_leaseId_fkey" FOREIGN KEY ("agencyId", "leaseId") REFERENCES "Lease"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TicketComment" ADD CONSTRAINT "TicketComment_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "MaintenanceTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Residency" ADD CONSTRAINT "Residency_agencyId_unitId_fkey" FOREIGN KEY ("agencyId", "unitId") REFERENCES "Unit"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TicketEvent" ADD CONSTRAINT "TicketEvent_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "MaintenanceTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Residency" ADD CONSTRAINT "Residency_agencyId_leaseId_fkey" FOREIGN KEY ("agencyId", "leaseId") REFERENCES "Lease"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Residency" ADD CONSTRAINT "Residency_agencyId_leadId_fkey" FOREIGN KEY ("agencyId", "leadId") REFERENCES "Lead"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MaintenanceTicket" ADD CONSTRAINT "MaintenanceTicket_agencyId_unitId_fkey" FOREIGN KEY ("agencyId", "unitId") REFERENCES "Unit"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MaintenanceTicket" ADD CONSTRAINT "MaintenanceTicket_agencyId_residencyId_fkey" FOREIGN KEY ("agencyId", "residencyId") REFERENCES "Residency"("agencyId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TicketPhoto" ADD CONSTRAINT "TicketPhoto_agencyId_ticketId_fkey" FOREIGN KEY ("agencyId", "ticketId") REFERENCES "MaintenanceTicket"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TicketComment" ADD CONSTRAINT "TicketComment_agencyId_ticketId_fkey" FOREIGN KEY ("agencyId", "ticketId") REFERENCES "MaintenanceTicket"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TicketEvent" ADD CONSTRAINT "TicketEvent_agencyId_ticketId_fkey" FOREIGN KEY ("agencyId", "ticketId") REFERENCES "MaintenanceTicket"("agencyId", "id") ON DELETE CASCADE ON UPDATE CASCADE;
 

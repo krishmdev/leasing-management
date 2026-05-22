@@ -8,13 +8,17 @@ ALTER TABLE "Showing" ADD CONSTRAINT showing_agent_no_overlap
   EXCLUDE USING gist ("agentUserId" WITH =, tstzrange("startsAt", "endsAt", '[)') WITH &&)
   WHERE (status = 'SCHEDULED');
 
--- Unit holds: at most one ACTIVE hold per unit at any instant. An ACTIVE hold whose range has
--- ended no longer blocks a new one, even before the sweeper flips it to EXPIRED.
+-- Unit holds: at most one ACTIVE hold per unit at any instant.
 ALTER TABLE "UnitHold" ADD CONSTRAINT unit_hold_active_window
   CHECK (status <> 'ACTIVE' OR ("startsAt" IS NOT NULL AND "expiresAt" > "startsAt"));
 ALTER TABLE "UnitHold" ADD CONSTRAINT unit_hold_one_active
   EXCLUDE USING gist ("unitId" WITH =, tstzrange("startsAt", "expiresAt", '[)') WITH &&)
   WHERE (status = 'ACTIVE');
+-- Stricter than the range constraint: one ACTIVE row per unit, full stop. An ACTIVE hold whose
+-- window has passed must be flipped to EXPIRED (under the Unit row lock) before another hold can
+-- become ACTIVE. now() is frozen at transaction start, so the range alone can't be trusted when a
+-- transaction has been waiting on a lock.
+CREATE UNIQUE INDEX unit_hold_one_active_row ON "UnitHold" ("unitId") WHERE status = 'ACTIVE';
 
 -- Residencies: backstop against two leases occupying the same unit on overlapping dates.
 ALTER TABLE "Residency" ADD CONSTRAINT residency_dates_valid

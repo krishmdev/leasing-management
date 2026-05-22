@@ -1,6 +1,20 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { keys, type KeyProvider } from "./keyProvider";
 
-/** 32 random bytes, base64url. Only the sha256 is stored; the raw token lives in the emailed link. */
+export type TokenPurpose = "showing" | "reference" | "lease";
+
+/**
+ * Link tokens are derived, not stored: token = base64url(HMAC(TOKEN_KEY, purpose|rowId|version)).
+ * The database keeps only sha256(token). Anything that needs the link later (an email render, a
+ * retry of that render) recomputes it from the row, so outbox payloads never carry a token.
+ * Reissuing a link means bumping tokenVersion, which also invalidates the old one.
+ */
+export function deriveToken(purpose: TokenPurpose, rowId: string, version: number, kp: KeyProvider = keys()): { token: string; hash: string } {
+  const token = createHmac("sha256", kp.tokenKey()).update(`${purpose}|${rowId}|${version}`).digest("base64url");
+  return { token, hash: hashToken(token) };
+}
+
+/** 32 random bytes, base64url, for tokens that are never re-sent (none today besides tests). */
 export function newToken(): { token: string; hash: string } {
   const token = randomBytes(32).toString("base64url");
   return { token, hash: hashToken(token) };

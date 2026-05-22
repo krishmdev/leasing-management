@@ -1,6 +1,6 @@
 import { uuidv7 } from "@/lib/ids";
 import { db } from "@/server/db";
-import { auth } from "@/server/auth";
+import { provisionUser } from "@/server/auth";
 import type { AgencyContact, AgencyTheme } from "@/server/domain/agency";
 
 export const DEMO_PASSWORD = "demo-password-2026";
@@ -79,9 +79,7 @@ export const SLA_DEFAULTS = [
 async function ensureUser(email: string, name: string) {
   const existing = await db().user.findUnique({ where: { email } });
   if (existing) return existing;
-  const res = await auth().api.signUpEmail({ body: { email, name, password: DEMO_PASSWORD } });
-  await db().user.update({ where: { id: res.user.id }, data: { emailVerified: true } });
-  return db().user.findUniqueOrThrow({ where: { id: res.user.id } });
+  return provisionUser(email, name, DEMO_PASSWORD);
 }
 
 export async function seedAgencies() {

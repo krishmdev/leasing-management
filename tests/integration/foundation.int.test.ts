@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { uuidv7 } from "@/lib/ids";
 import { db, pgCode } from "@/server/db";
-import { tenantDb, TenantMismatchError } from "@/server/tenant";
+import { tenantDb, tenantRaw, TenantViolation } from "@/server/tenant";
 import { audit } from "@/server/audit/audit";
 import { decryptField, DecryptError, fields } from "@/server/crypto/fieldEncryption";
 import { makeAgency, makeLead, makeUnit, makeUser, resetDb } from "../helpers/db";
@@ -42,7 +42,60 @@ describe("tenant isolation", () => {
     expect(p.agencyId).toBe(A.id);
     await expect(
       tA.property.create({ data: { agencyId: B.id, name: "x", street: "x", city: "x", zip: "x", amenities: [], description: "" } }),
-    ).rejects.toBeInstanceOf(TenantMismatchError);
+    ).rejects.toBeInstanceOf(TenantViolation);
+  });
+
+  it("updateManyAndReturn is scoped too", async () => {
+    const unitB = await makeUnit(B.id);
+    const rows = await tenantDb(A.id).unit.updateManyAndReturn({ where: { id: unitB.id }, data: { label: "pwned" } });
+    expect(rows).toHaveLength(0);
+    expect((await db().unit.findUniqueOrThrow({ where: { id: unitB.id } })).label).toBe(unitB.label);
+  });
+
+  it("a row can't reference another agency's row (composite foreign keys)", async () => {
+    const unitB = await makeUnit(B.id);
+    const leadA = await makeLead(A.id);
+    const err = await tenantDb(A.id)
+      .showing.create({
+        data: { agencyId: A.id, unitId: unitB.id, leadId: leadA.id, agentUserId: "x", startsAt: new Date(), endsAt: new Date(Date.now() + 1000), icsUid: uuidv7(), manageTokenHash: uuidv7() },
+      })
+      .catch((e) => e);
+    expect(pgCode(err) ?? String(err)).toMatch(/23503|foreign key/i);
+  });
+
+  it("rejects nested relation writes", async () => {
+    const unitA = await makeUnit(A.id);
+    const leadA = await makeLead(A.id);
+    await expect(
+      tenantDb(A.id).unit.update({
+        where: { id: unitA.id },
+        data: { showings: { create: { agencyId: B.id, leadId: leadA.id, agentUserId: "y", startsAt: new Date(), endsAt: new Date(Date.now() + 1000), icsUid: uuidv7(), manageTokenHash: uuidv7() } } } as never,
+      }),
+    ).rejects.toBeInstanceOf(TenantViolation);
+  });
+
+  it("global models can't be used to reach tenant rows", async () => {
+    const tA = tenantDb(A.id);
+    await expect(tA.organization.findUnique({ where: { id: B.id }, include: { units: true } })).rejects.toBeInstanceOf(TenantViolation);
+    await expect(tA.organization.findUnique({ where: { id: B.id }, select: { _count: true } })).rejects.toBeInstanceOf(TenantViolation);
+    await expect(tA.organization.findMany({ where: { units: { some: {} } } })).rejects.toBeInstanceOf(TenantViolation);
+    expect((await tA.organization.findUnique({ where: { id: A.id } }))?.slug).toBe("alpha");
+  });
+
+  it("bare raw SQL is refused; tenantRaw requires this tenant's agencyId", async () => {
+    const tA = tenantDb(A.id);
+    await expect(tA.$queryRaw`SELECT count(*) FROM "Unit"`).rejects.toBeInstanceOf(TenantViolation);
+    await expect(tA.$executeRawUnsafe(`DELETE FROM "Unit"`)).rejects.toBeInstanceOf(TenantViolation);
+    expect(() => tenantRaw(A.id, tA).query`SELECT count(*) FROM "Unit"`).toThrow(TenantViolation);
+    expect(() => tenantRaw(A.id, tA).query`SELECT count(*) FROM "Unit" WHERE "agencyId" = ${B.id}`).toThrow(TenantViolation);
+    const rows = await tenantRaw(A.id, tA).query<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM "Unit" WHERE "agencyId" = ${A.id}`;
+    expect(Number(rows[0].n)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("the extension survives into interactive transactions", async () => {
+    await makeUnit(B.id);
+    const n = await tenantDb(A.id).$transaction(async (tx) => tx.unit.count());
+    expect(n).toBe(await db().unit.count({ where: { agencyId: A.id } }));
   });
 });
 
@@ -123,7 +176,7 @@ describe("database backstops", () => {
     await book(30); // back-to-back is fine: ranges are half-open
   });
 
-  it("allows only one ACTIVE hold per unit at a time", async () => {
+  it("allows only one ACTIVE hold row per unit", async () => {
     const unit = await makeUnit(A.id);
     const lead = await makeLead(A.id);
     const mkApp = () =>
@@ -140,9 +193,13 @@ describe("database backstops", () => {
     await hold(a1.id, -1);
     const err = await hold(a2.id, 0).catch((e) => e);
     expect(pgCode(err)).toBe("23P01");
-    // a waitlisted hold doesn't conflict, and a hold that starts when the first ends is fine
+    // a waitlisted hold doesn't conflict
     await db().unitHold.create({ data: { agencyId: A.id, unitId: unit.id, applicationId: a2.id, status: "WAITLISTED" } });
-    await hold(a3.id, 71);
+    // even a non-overlapping window can't be ACTIVE while an older ACTIVE row exists: the old
+    // one has to be expired first, under the unit lock
+    expect(pgCode(await hold(a3.id, 80).catch((e) => e))).toBe("23505");
+    await db().unitHold.updateMany({ where: { applicationId: a1.id }, data: { status: "EXPIRED" } });
+    await hold(a3.id, 80);
   });
 
   it("rejects overlapping residencies on the same unit", async () => {

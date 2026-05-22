@@ -12,13 +12,14 @@ import {
   type FieldRef,
 } from "@/server/crypto/fieldEncryption";
 import { blindIndex, emailBidx, normalizeEmail, normalizePhone } from "@/server/crypto/blindIndex";
-import { hashToken, newToken, tokenMatches, canonicalJson } from "@/server/crypto/tokens";
+import { deriveToken, hashToken, newToken, tokenMatches, canonicalJson } from "@/server/crypto/tokens";
 
 const k1 = randomBytes(32).toString("base64");
 const k2 = randomBytes(32).toString("base64");
 const bidx = randomBytes(32).toString("base64");
-const ring1 = new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: k1 }), PII_ACTIVE_KEY_ID: "a", PII_BLIND_INDEX_KEY: bidx });
-const ring2 = new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: k1, b: k2 }), PII_ACTIVE_KEY_ID: "b", PII_BLIND_INDEX_KEY: bidx });
+const tk = randomBytes(32).toString("base64");
+const ring1 = new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: k1 }), PII_ACTIVE_KEY_ID: "a", PII_BLIND_INDEX_KEY: bidx, TOKEN_KEY: tk });
+const ring2 = new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: k1, b: k2 }), PII_ACTIVE_KEY_ID: "b", PII_BLIND_INDEX_KEY: bidx, TOKEN_KEY: tk });
 
 const agencyA = uuidv7();
 const agencyB = uuidv7();
@@ -109,8 +110,8 @@ describe("field encryption", () => {
   });
 
   it("rejects bad keyrings", () => {
-    expect(() => new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: "c2hvcnQ=" }), PII_ACTIVE_KEY_ID: "a", PII_BLIND_INDEX_KEY: bidx })).toThrow(/32 bytes/);
-    expect(() => new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: k1 }), PII_ACTIVE_KEY_ID: "z", PII_BLIND_INDEX_KEY: bidx })).toThrow(/not in keyring/);
+    expect(() => new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: "c2hvcnQ=" }), PII_ACTIVE_KEY_ID: "a", PII_BLIND_INDEX_KEY: bidx, TOKEN_KEY: tk })).toThrow(/32 bytes/);
+    expect(() => new EnvKeyProvider({ PII_KEYRING: JSON.stringify({ a: k1 }), PII_ACTIVE_KEY_ID: "z", PII_BLIND_INDEX_KEY: bidx, TOKEN_KEY: tk })).toThrow(/not in keyring/);
   });
 });
 
@@ -139,6 +140,15 @@ describe("tokens", () => {
     expect(tokenMatches(token, hash)).toBe(true);
     expect(tokenMatches(token + "x", hash)).toBe(false);
     expect(Buffer.from(token, "base64url").length).toBe(32);
+  });
+
+  it("derived tokens are stable per (purpose, row, version) and change on reissue", () => {
+    const a = deriveToken("lease", "row-1", 1, ring1);
+    expect(deriveToken("lease", "row-1", 1, ring1)).toEqual(a);
+    expect(deriveToken("lease", "row-1", 2, ring1).token).not.toBe(a.token);
+    expect(deriveToken("showing", "row-1", 1, ring1).token).not.toBe(a.token);
+    expect(a.hash).toBe(hashToken(a.token));
+    expect(Buffer.from(a.token, "base64url").length).toBe(32);
   });
 
   it("canonical JSON ignores key order", () => {

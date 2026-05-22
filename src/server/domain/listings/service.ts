@@ -36,24 +36,33 @@ export function unitSlug(propertyName: string, label: string) {
 
 export async function createProperty(agencyId: string, actorId: string | null, input: z.input<typeof PropertyInput>) {
   const data = PropertyInput.parse(input);
-  const p = await tenantDb(agencyId).property.create({ data: { agencyId, state: "CA", ...data } });
-  await audit({ agencyId, actorType: actorId ? "USER" : "SYSTEM", actorId, action: "property.created", entity: "Property", entityId: p.id });
-  return p;
+  return tenantDb(agencyId).$transaction(async (tx) => {
+    const p = await tx.property.create({ data: { agencyId, state: "CA", ...data } });
+    await audit({ agencyId, actorType: actorId ? "USER" : "SYSTEM", actorId, action: "property.created", entity: "Property", entityId: p.id }, tx);
+    return p;
+  });
 }
 
 export async function createUnit(agencyId: string, actorId: string | null, input: z.input<typeof UnitInput>) {
   const data = UnitInput.parse(input);
-  const t = tenantDb(agencyId);
-  const property = await t.property.findUnique({ where: { id: data.propertyId } });
-  if (!property) throw new Error("property not found");
-  const u = await t.unit.create({ data: { agencyId, ...data } });
-  await audit({ agencyId, actorType: actorId ? "USER" : "SYSTEM", actorId, action: "unit.created", entity: "Unit", entityId: u.id, metadata: { rentCents: u.rentCents } });
-  return u;
+  return tenantDb(agencyId).$transaction(async (tx) => {
+    // The composite FK also rejects a foreign propertyId; this gives a readable error first.
+    const property = await tx.property.findUnique({ where: { id: data.propertyId } });
+    if (!property) throw new Error("property not found");
+    const u = await tx.unit.create({ data: { agencyId, ...data } });
+    await audit({ agencyId, actorType: actorId ? "USER" : "SYSTEM", actorId, action: "unit.created", entity: "Unit", entityId: u.id, metadata: { rentCents: u.rentCents } }, tx);
+    return u;
+  });
 }
 
-export async function updateUnit(agencyId: string, actorId: string, unitId: string, patch: Partial<z.input<typeof UnitInput>>) {
-  const data = UnitInput.partial().parse(patch);
-  const u = await tenantDb(agencyId).unit.update({ where: { id: unitId }, data });
-  await audit({ agencyId, actorType: "USER", actorId, action: "unit.updated", entity: "Unit", entityId: unitId, metadata: { fields: Object.keys(data) } });
-  return u;
+/** Editable listing fields. Status and property are deliberately not here (see setUnitListed). */
+export const UnitPatch = UnitInput.pick({ label: true, beds: true, baths: true, sqft: true, rentCents: true, depositCents: true, availableOn: true, description: true, features: true, listingAgentId: true }).partial();
+
+export async function updateUnit(agencyId: string, actorId: string, unitId: string, patch: z.input<typeof UnitPatch>) {
+  const data = UnitPatch.strict().parse(patch);
+  return tenantDb(agencyId).$transaction(async (tx) => {
+    const u = await tx.unit.update({ where: { id: unitId }, data });
+    await audit({ agencyId, actorType: "USER", actorId, action: "unit.updated", entity: "Unit", entityId: unitId, metadata: { fields: Object.keys(data) } }, tx);
+    return u;
+  });
 }

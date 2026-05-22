@@ -1,5 +1,20 @@
 import nodemailer, { type Transporter } from "nodemailer";
 
+/** The provider saw this key with a different payload; resending can't help. */
+export class NeedsReviewError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NeedsReviewError";
+  }
+}
+/** The provider is still processing a request with this key. */
+export class RetryLaterError extends Error {
+  constructor(message: string, public readonly afterMs = 30_000) {
+    super(message);
+    this.name = "RetryLaterError";
+  }
+}
+
 export interface OutgoingEmail {
   to: string;
   subject: string;
@@ -92,6 +107,11 @@ export class ResendTransport implements EmailTransport {
         })),
       }),
     });
+    if (res.status === 409) {
+      const body = (await res.json().catch(() => ({}))) as { name?: string; message?: string };
+      if (body.name === "concurrent_idempotent_requests") throw new RetryLaterError("resend: same key still in flight");
+      throw new NeedsReviewError(`resend 409 ${body.name ?? ""}: ${(body.message ?? "").slice(0, 200)}`);
+    }
     if (!res.ok) throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const body = (await res.json()) as { id: string };
     return { providerMessageId: body.id };

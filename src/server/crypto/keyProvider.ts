@@ -6,6 +6,8 @@ export interface KeyProvider {
   activeKeyId(): string;
   dataKey(keyId: string): Buffer;
   blindIndexKey(): Buffer;
+  /** HMAC key for link tokens (showing, reference, lease). */
+  tokenKey(): Buffer;
   keyIds(): string[];
 }
 
@@ -13,6 +15,7 @@ export class EnvKeyProvider implements KeyProvider {
   private readonly ring: Map<string, Buffer>;
   private readonly active: string;
   private readonly bidx: Buffer;
+  private readonly tok: Buffer;
 
   constructor(env: Record<string, string | undefined> = process.env) {
     if (!env.PII_KEYRING || !env.PII_ACTIVE_KEY_ID || !env.PII_BLIND_INDEX_KEY) {
@@ -26,6 +29,8 @@ export class EnvKeyProvider implements KeyProvider {
     }
     this.active = env.PII_ACTIVE_KEY_ID;
     this.bidx = decode32(env.PII_BLIND_INDEX_KEY, "blind index key");
+    if (!env.TOKEN_KEY) throw new Error("TOKEN_KEY must be set (run pnpm bootstrap)");
+    this.tok = decode32(env.TOKEN_KEY, "token key");
   }
 
   activeKeyId() {
@@ -40,6 +45,10 @@ export class EnvKeyProvider implements KeyProvider {
 
   blindIndexKey() {
     return this.bidx;
+  }
+
+  tokenKey() {
+    return this.tok;
   }
 
   keyIds() {

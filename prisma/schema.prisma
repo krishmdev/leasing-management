@@ -82,7 +82,7 @@ model Verification {
 }
 
 model Organization {
-  id          String           @id
+  id          String          @id
   name        String
   slug        String
   logo        String?
@@ -171,30 +171,31 @@ enum UnitStatus {
 }
 
 model Property {
-  id          String       @id @default(uuid(7))
-  agencyId    String
-  agency      Organization @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  name        String
-  street      String
-  city        String
-  state       String       @default("CA")
-  zip         String
+  id           String       @id @default(uuid(7))
+  agencyId     String
+  agency       Organization @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  name         String
+  street       String
+  city         String
+  state        String       @default("CA")
+  zip          String
   neighborhood String?
-  amenities   String[]
-  description String
-  yearBuilt   Int?
-  units       Unit[]
-  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  amenities    String[]
+  description  String
+  yearBuilt    Int?
+  units        Unit[]
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
 
+  @@unique([agencyId, id])
   @@index([agencyId])
 }
 
 model Unit {
-  id             String       @id @default(uuid(7))
+  id             String              @id @default(uuid(7))
   agencyId       String
-  agency         Organization @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agency         Organization        @relation(fields: [agencyId], references: [id], onDelete: Restrict)
   propertyId     String
-  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property       Property            @relation(fields: [agencyId, propertyId], references: [agencyId, id], onDelete: Restrict)
   slug           String
   label          String
   beds           Int
@@ -202,14 +203,14 @@ model Unit {
   sqft           Int
   rentCents      Int
   depositCents   Int
-  availableOn    DateTime     @db.Date
-  status         UnitStatus   @default(AVAILABLE)
+  availableOn    DateTime            @db.Date
+  status         UnitStatus          @default(AVAILABLE)
   description    String
   features       String[]
-  petPolicy      String       @default("Cats and small dogs considered. Assistance animals are not pets.")
+  petPolicy      String              @default("Cats and small dogs considered. Assistance animals are not pets.")
   listingAgentId String?
-  photoSeed      Int          @default(0)
-  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  photoSeed      Int                 @default(0)
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
   opportunities  Opportunity[]
   showings       Showing[]
   applications   Application[]
@@ -218,6 +219,7 @@ model Unit {
   residencies    Residency[]
   tickets        MaintenanceTicket[]
 
+  @@unique([agencyId, id])
   @@unique([agencyId, slug])
   @@index([agencyId, status])
 }
@@ -246,38 +248,42 @@ model Lead {
   opportunities Opportunity[]
   showings      Showing[]
   applications  Application[]
+  leases        Lease[]
+  residencies   Residency[]
 
+  @@unique([agencyId, id])
   @@unique([agencyId, emailBidx])
   @@index([agencyId])
 }
 
 model Opportunity {
-  id             String           @id @default(uuid(7))
+  id             String                 @id @default(uuid(7))
   agencyId       String
   leadId         String
-  lead           Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead           Lead                   @relation(fields: [agencyId, leadId], references: [agencyId, id], onDelete: Cascade)
   unitId         String
-  unit           Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  stage          OpportunityStage @default(INTEREST)
-  stageChangedAt DateTime         @default(now()) @db.Timestamptz(3)
+  unit           Unit                   @relation(fields: [agencyId, unitId], references: [agencyId, id], onDelete: Cascade)
+  stage          OpportunityStage       @default(INTEREST)
+  stageChangedAt DateTime               @default(now()) @db.Timestamptz(3)
   lostReason     String?
-  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  createdAt      DateTime               @default(now()) @db.Timestamptz(3)
   interests      IndicationOfInterest[]
   stageEvents    StageEvent[]
 
+  @@unique([agencyId, id])
   @@unique([leadId, unitId])
   @@index([agencyId, stage])
 }
 
 /// Every stage change, for time-in-stage metrics.
 model StageEvent {
-  id            String           @id @default(uuid(7))
+  id            String            @id @default(uuid(7))
   agencyId      String
   opportunityId String
-  opportunity   Opportunity      @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity       @relation(fields: [agencyId, opportunityId], references: [agencyId, id], onDelete: Cascade)
   from          OpportunityStage?
   to            OpportunityStage
-  at            DateTime         @default(now()) @db.Timestamptz(3)
+  at            DateTime          @default(now()) @db.Timestamptz(3)
 
   @@index([agencyId, at])
 }
@@ -286,7 +292,7 @@ model IndicationOfInterest {
   id            String      @id
   agencyId      String
   opportunityId String
-  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity @relation(fields: [agencyId, opportunityId], references: [agencyId, id], onDelete: Cascade)
   desiredMoveIn DateTime    @db.Date
   messageEnc    String?
   createdAt     DateTime    @default(now()) @db.Timestamptz(3)
@@ -329,17 +335,21 @@ model Showing {
   id              String        @id @default(uuid(7))
   agencyId        String
   unitId          String
-  unit            Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit            Unit          @relation(fields: [agencyId, unitId], references: [agencyId, id], onDelete: Cascade)
   leadId          String
-  lead            Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead            Lead          @relation(fields: [agencyId, leadId], references: [agencyId, id], onDelete: Cascade)
   agentUserId     String
   startsAt        DateTime      @db.Timestamptz(3)
   endsAt          DateTime      @db.Timestamptz(3)
   status          ShowingStatus @default(SCHEDULED)
   icsUid          String        @unique
   icsSequence     Int           @default(0)
+  /// sha256 of HMAC(TOKEN_KEY, "showing|id|tokenVersion"); bump tokenVersion to reissue
   manageTokenHash String        @unique
+  tokenVersion    Int           @default(1)
   createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  /// Last change to anything that appears in the invite; used as the ics DTSTAMP
+  changedAt       DateTime      @default(now()) @db.Timestamptz(3)
 
   @@index([agencyId, startsAt])
 }
@@ -369,33 +379,33 @@ enum IncomeType {
 }
 
 model Application {
-  id                  String            @id
+  id                  String               @id
   agencyId            String
   leadId              String
-  lead                Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead                Lead                 @relation(fields: [agencyId, leadId], references: [agencyId, id], onDelete: Restrict)
   unitId              String
-  unit                Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit                Unit                 @relation(fields: [agencyId, unitId], references: [agencyId, id], onDelete: Restrict)
   userId              String?
-  status              ApplicationStatus @default(DRAFT)
-  statusChangedAt     DateTime          @default(now()) @db.Timestamptz(3)
-  currentStep         Int               @default(1)
+  status              ApplicationStatus    @default(DRAFT)
+  statusChangedAt     DateTime             @default(now()) @db.Timestamptz(3)
+  currentStep         Int                  @default(1)
   legalNameEnc        String?
   phoneEnc            String?
-  desiredMoveIn       DateTime?         @db.Date
+  desiredMoveIn       DateTime?            @db.Date
   /// Occupancy limits only. Never scored and never sent to an LLM.
   totalOccupants      Int?
   incomeType          IncomeType?
   monthlyIncomeCents  Int?
-  hasRentSubsidy      Boolean           @default(false)
+  hasRentSubsidy      Boolean              @default(false)
   subsidyMonthlyCents Int?
-  altEvidenceProvided Boolean           @default(false)
+  altEvidenceProvided Boolean              @default(false)
   /// Locked at submit. The rubric always uses this version.
   criteriaVersionId   String?
-  criteria            ScreeningCriteria? @relation(fields: [criteriaVersionId], references: [id])
-  submittedAt         DateTime?         @db.Timestamptz(3)
-  purgedAt            DateTime?         @db.Timestamptz(3)
-  createdAt           DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime          @updatedAt @db.Timestamptz(3)
+  criteria            ScreeningCriteria?   @relation(fields: [agencyId, criteriaVersionId], references: [agencyId, id], onDelete: Restrict)
+  submittedAt         DateTime?            @db.Timestamptz(3)
+  purgedAt            DateTime?            @db.Timestamptz(3)
+  createdAt           DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(3)
   residences          ResidenceHistory[]
   consents            ConsentRecord[]
   references          ReferenceRequest[]
@@ -405,25 +415,30 @@ model Application {
   decisions           Decision[]
   hold                UnitHold?
   lease               Lease?
+  adverseAction       AdverseActionNotice?
+  tasks               ApprovalTask[]
+  documents           GeneratedDocument[]
 
+  @@unique([agencyId, id])
   @@index([agencyId, status])
 }
 
 model ResidenceHistory {
-  id               String            @id
+  id               String             @id
   agencyId         String
   applicationId    String
-  application      Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application      Application        @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Cascade)
   addressEnc       String?
   landlordNameEnc  String?
   landlordEmailEnc String?
   landlordPhoneEnc String?
-  startDate        DateTime          @db.Date
-  endDate          DateTime?         @db.Date
+  startDate        DateTime           @db.Date
+  endDate          DateTime?          @db.Date
   monthlyRentCents Int
-  consentToContact Boolean           @default(false)
+  consentToContact Boolean            @default(false)
   references       ReferenceRequest[]
 
+  @@unique([agencyId, id])
   @@index([agencyId, applicationId])
 }
 
@@ -438,7 +453,7 @@ model ConsentRecord {
   id            String      @id @default(uuid(7))
   agencyId      String
   applicationId String
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application   Application @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   type          ConsentType
   textVersion   String
   textSha256    String
@@ -460,10 +475,12 @@ model ReferenceRequest {
   id            String             @id @default(uuid(7))
   agencyId      String
   applicationId String
-  application   Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application   Application        @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Cascade)
   residenceId   String
-  residence     ResidenceHistory   @relation(fields: [residenceId], references: [id], onDelete: Cascade)
+  residence     ResidenceHistory   @relation(fields: [agencyId, residenceId], references: [agencyId, id], onDelete: Cascade)
+  /// sha256 of HMAC(TOKEN_KEY, "reference|id|tokenVersion")
   tokenHash     String             @unique
+  tokenVersion  Int                @default(1)
   expiresAt     DateTime           @db.Timestamptz(3)
   status        ReferenceStatus    @default(SENT)
   remindersSent Int                @default(0)
@@ -471,6 +488,7 @@ model ReferenceRequest {
   createdAt     DateTime           @default(now()) @db.Timestamptz(3)
   response      ReferenceResponse?
 
+  @@unique([agencyId, id])
   @@unique([applicationId, residenceId])
 }
 
@@ -478,7 +496,7 @@ model ReferenceResponse {
   id                 String           @id
   agencyId           String
   referenceRequestId String           @unique
-  request            ReferenceRequest @relation(fields: [referenceRequestId], references: [id], onDelete: Cascade)
+  request            ReferenceRequest @relation(fields: [agencyId, referenceRequestId], references: [agencyId, id], onDelete: Cascade)
   paidOnTime         String // ALWAYS | MOSTLY | RARELY
   lateCount          Int
   leaseViolations    Boolean
@@ -491,6 +509,8 @@ model ReferenceResponse {
   aiAnalysis         Json?
   redactionCount     Int              @default(0)
   createdAt          DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@unique([agencyId, referenceRequestId])
 }
 
 // ---------------------------------------------------------------- Screening
@@ -505,6 +525,7 @@ model ScreeningCriteria {
   createdAt    DateTime      @default(now()) @db.Timestamptz(3)
   applications Application[]
 
+  @@unique([agencyId, id])
   @@unique([agencyId, version])
 }
 
@@ -522,7 +543,7 @@ model ScreeningRequest {
   id                   String           @id @default(uuid(7))
   agencyId             String
   applicationId        String
-  application          Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application          Application      @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Cascade)
   criteriaVersionId    String
   provider             String
   idempotencyKey       String           @unique
@@ -534,6 +555,7 @@ model ScreeningRequest {
   updatedAt            DateTime         @updatedAt @db.Timestamptz(3)
   result               ScreeningResult?
 
+  @@unique([agencyId, id])
   @@unique([applicationId, criteriaVersionId])
 }
 
@@ -552,7 +574,7 @@ model ScreeningResult {
   id                          String           @id
   agencyId                    String
   screeningRequestId          String           @unique
-  request                     ScreeningRequest @relation(fields: [screeningRequestId], references: [id], onDelete: Cascade)
+  request                     ScreeningRequest @relation(fields: [agencyId, screeningRequestId], references: [agencyId, id], onDelete: Cascade)
   creditBand                  String // EXCELLENT | GOOD | FAIR | POOR | THIN_FILE
   /// Kept only for the adverse-action score disclosure; purged on the credit retention window.
   creditScoreEnc              String?
@@ -569,6 +591,8 @@ model ScreeningResult {
   craDisclosure               Json
   receivedAt                  DateTime         @default(now()) @db.Timestamptz(3)
   purgedAt                    DateTime?        @db.Timestamptz(3)
+
+  @@unique([agencyId, screeningRequestId])
 }
 
 // ---------------------------------------------------------------- Agent
@@ -577,7 +601,10 @@ enum StepStatus {
   PENDING
   RUNNING
   SUCCEEDED
+  /// retryable
   FAILED
+  /// attempt cap or input drift; needs a person
+  DEAD
 }
 
 /// Durable step record. pg-boss is at-least-once, so the queue only schedules work; this row
@@ -586,11 +613,12 @@ model AgentStep {
   id                String      @id @default(uuid(7))
   agencyId          String
   applicationId     String
-  application       Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application       Application @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Cascade)
   criteriaVersionId String
   stepName          String
   status            StepStatus  @default(PENDING)
   attempt           Int         @default(0)
+  /// fresh random token per claim, not a worker id
   leaseOwner        String?
   leaseUntil        DateTime?   @db.Timestamptz(3)
   inputJson         Json?
@@ -639,7 +667,7 @@ model Recommendation {
   id                String      @id @default(uuid(7))
   agencyId          String
   applicationId     String
-  application       Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application       Application @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Cascade)
   criteriaVersionId String
   rubricScore       Int
   breakdown         Json
@@ -663,7 +691,7 @@ model Decision {
   id                     String       @id @default(uuid(7))
   agencyId               String
   applicationId          String
-  application            Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application            Application  @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   criteriaVersionId      String
   outcome                Outcome
   mode                   DecisionMode
@@ -692,33 +720,37 @@ enum TaskStatus {
 }
 
 model ApprovalTask {
-  id                String     @id @default(uuid(7))
+  id                String       @id @default(uuid(7))
   agencyId          String
   applicationId     String?
+  application       Application? @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   ticketId          String?
   type              TaskType
-  idempotencyKey    String     @unique
+  idempotencyKey    String       @unique
   payload           Json
   escalationReasons String[]
-  status            TaskStatus @default(OPEN)
-  dueAt             DateTime?  @db.Timestamptz(3)
+  status            TaskStatus   @default(OPEN)
+  dueAt             DateTime?    @db.Timestamptz(3)
   resolvedById      String?
-  resolvedAt        DateTime?  @db.Timestamptz(3)
-  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  resolvedAt        DateTime?    @db.Timestamptz(3)
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
 
   @@index([agencyId, status])
 }
 
 model AdverseActionNotice {
-  id            String    @id @default(uuid(7))
+  id            String      @id @default(uuid(7))
   agencyId      String
-  applicationId String    @unique
+  applicationId String      @unique
+  application   Application @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   reasonCodes   Json
   basis         String[]
   craSnapshot   Json
   documentId    String?
-  sentAt        DateTime? @db.Timestamptz(3)
-  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  sentAt        DateTime?   @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@unique([agencyId, applicationId])
 }
 
 // ---------------------------------------------------------------- Outbox and documents
@@ -752,6 +784,8 @@ model OutboxMessage {
   firstAttemptAt    DateTime?    @db.Timestamptz(3)
   lastAttemptAt     DateTime?    @db.Timestamptz(3)
   transport         String?
+  /// sha256 of what the first attempt rendered; a later attempt that renders differently is flagged
+  renderedSha256    String?
   providerMessageId String?
   error             String?
   createdAt         DateTime     @default(now()) @db.Timestamptz(3)
@@ -772,6 +806,7 @@ model GeneratedDocument {
   id              String       @id @default(uuid(7))
   agencyId        String
   applicationId   String?
+  application     Application? @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   leaseId         String?
   kind            DocumentKind
   templateVersion String
@@ -799,15 +834,16 @@ model UnitHold {
   id            String      @id @default(uuid(7))
   agencyId      String
   unitId        String
-  unit          Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit          Unit        @relation(fields: [agencyId, unitId], references: [agencyId, id], onDelete: Restrict)
   applicationId String      @unique
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application   Application @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   status        HoldStatus
   startsAt      DateTime?   @db.Timestamptz(3)
   expiresAt     DateTime?   @db.Timestamptz(3)
   queuedAt      DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
 
+  @@unique([agencyId, applicationId])
   @@index([unitId, status])
 }
 
@@ -822,33 +858,41 @@ model Lease {
   id                 String      @id @default(uuid(7))
   agencyId           String
   applicationId      String      @unique
-  application        Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application        Application @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   unitId             String
-  unit               Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  signerId           String // the applicant's Lead id
+  unit               Unit        @relation(fields: [agencyId, unitId], references: [agencyId, id], onDelete: Restrict)
+  /// the applicant's Lead id
+  signerId           String
+  signer             Lead        @relation(fields: [agencyId, signerId], references: [agencyId, id], onDelete: Restrict)
   rentCents          Int
   depositCents       Int
   startDate          DateTime    @db.Date
   endDate            DateTime    @db.Date
   status             LeaseStatus @default(DRAFT)
+  /// sha256 of HMAC(TOKEN_KEY, "lease|id|tokenVersion"). Never cleared, so a replayed signing can still authenticate.
   signTokenHash      String      @unique
+  tokenVersion       Int         @default(1)
   signTokenExpiresAt DateTime    @db.Timestamptz(3)
   sentAt             DateTime?   @db.Timestamptz(3)
   signedAt           DateTime?   @db.Timestamptz(3)
   createdAt          DateTime    @default(now()) @db.Timestamptz(3)
   signatures         Signature[]
   residency          Residency?
+
+  @@unique([agencyId, id])
+  @@unique([agencyId, applicationId])
 }
 
 model Signature {
   id           String   @id @default(uuid(7))
   agencyId     String
   leaseId      String
-  lease        Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  lease        Lease    @relation(fields: [agencyId, leaseId], references: [agencyId, id], onDelete: Restrict)
   signerId     String
   typedName    String
   ip           String?
   ua           String?
+  /// sha256 of the LEASE document the signer reviewed (the client echoes it back)
   docSha256    String
   signedAt     DateTime @db.Timestamptz(3)
   /// The exact success body returned the first time, replayed on retries.
@@ -865,20 +909,24 @@ enum ResidencyStatus {
 }
 
 model Residency {
-  id             String          @id @default(uuid(7))
+  id             String              @id @default(uuid(7))
   agencyId       String
   unitId         String
-  unit           Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  leaseId        String?         @unique
-  lease          Lease?          @relation(fields: [leaseId], references: [id])
+  unit           Unit                @relation(fields: [agencyId, unitId], references: [agencyId, id], onDelete: Restrict)
+  leaseId        String?             @unique
+  lease          Lease?              @relation(fields: [agencyId, leaseId], references: [agencyId, id], onDelete: Restrict)
   leadId         String?
+  lead           Lead?               @relation(fields: [agencyId, leadId], references: [agencyId, id], onDelete: Restrict)
   residentUserId String?
-  moveIn         DateTime        @db.Date
-  moveOut        DateTime?       @db.Date
+  moveIn         DateTime            @db.Date
+  moveOut        DateTime?           @db.Date
   status         ResidencyStatus
   rentCents      Int
-  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
+  tickets        MaintenanceTicket[]
 
+  @@unique([agencyId, id])
+  @@unique([agencyId, leaseId])
   @@index([agencyId, status])
 }
 
@@ -917,8 +965,9 @@ model MaintenanceTicket {
   id                           String          @id @default(uuid(7))
   agencyId                     String
   unitId                       String
-  unit                         Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit                         Unit            @relation(fields: [agencyId, unitId], references: [agencyId, id], onDelete: Restrict)
   residencyId                  String?
+  residency                    Residency?      @relation(fields: [agencyId, residencyId], references: [agencyId, id], onDelete: Restrict)
   reporterUserId               String?
   title                        String
   description                  String
@@ -946,6 +995,7 @@ model MaintenanceTicket {
   comments                     TicketComment[]
   events                       TicketEvent[]
 
+  @@unique([agencyId, id])
   @@index([agencyId, status])
 }
 
@@ -953,7 +1003,7 @@ model TicketPhoto {
   id         String            @id @default(uuid(7))
   agencyId   String
   ticketId   String
-  ticket     MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket     MaintenanceTicket @relation(fields: [agencyId, ticketId], references: [agencyId, id], onDelete: Cascade)
   storageKey String
   thumbKey   String
   bytes      Int
@@ -966,7 +1016,7 @@ model TicketComment {
   id           String            @id @default(uuid(7))
   agencyId     String
   ticketId     String
-  ticket       MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket       MaintenanceTicket @relation(fields: [agencyId, ticketId], references: [agencyId, id], onDelete: Cascade)
   authorUserId String?
   authorType   String // STAFF | RESIDENT | SYSTEM
   body         String
@@ -978,7 +1028,7 @@ model TicketEvent {
   id        String            @id @default(uuid(7))
   agencyId  String
   ticketId  String
-  ticket    MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket    MaintenanceTicket @relation(fields: [agencyId, ticketId], references: [agencyId, id], onDelete: Cascade)
   from      TicketStatus?
   to        TicketStatus
   actorType String

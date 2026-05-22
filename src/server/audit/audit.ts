@@ -1,4 +1,4 @@
-import type { DbOrTx } from "@/server/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
 
 export type ActorType = "USER" | "AGENT" | "SYSTEM" | "APPLICANT" | "REFERENCE" | "RESIDENT";
@@ -15,9 +15,13 @@ export interface AuditEntry {
   ip?: string | null;
 }
 
+/** Anything with an auditLog delegate: the base client, a tenant client, or either's transaction. */
+export type AuditClient = { auditLog: { create(args: { data: Prisma.AuditLogUncheckedCreateInput }): Promise<unknown> } };
+
 const PII_KEY = /(name|email|phone|address|ssn|dob|birth|text|message)/i;
 
-export async function audit(entry: AuditEntry, client: DbOrTx = db()) {
+/** Pass the transaction client so the audit row commits (or rolls back) with the change it records. */
+export async function audit(entry: AuditEntry, client: AuditClient = db()) {
   const metadata = entry.metadata ?? {};
   for (const k of Object.keys(metadata)) {
     if (PII_KEY.test(k) && !/(count|Id|version|Version)$/.test(k)) {
@@ -32,7 +36,7 @@ export async function audit(entry: AuditEntry, client: DbOrTx = db()) {
       action: entry.action,
       entity: entry.entity,
       entityId: entry.entityId ?? null,
-      metadata: metadata as object,
+      metadata: metadata as Prisma.InputJsonObject,
       ip: entry.ip ?? null,
     },
   });

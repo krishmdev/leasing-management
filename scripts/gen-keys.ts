@@ -8,10 +8,12 @@ export function freshSecrets(): Record<string, string> {
     PII_KEYRING: JSON.stringify({ [keyId]: randomBytes(32).toString("base64") }),
     PII_ACTIVE_KEY_ID: keyId,
     PII_BLIND_INDEX_KEY: randomBytes(32).toString("base64"),
+    TOKEN_KEY: randomBytes(32).toString("base64"),
     MOCKCRA_WEBHOOK_SECRET: randomBytes(24).toString("base64url"),
   };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  for (const [k, v] of Object.entries(freshSecrets())) console.log(`${k}='${v}'`);
+  // Unquoted so the output works both as a dotenv file and as $GITHUB_ENV lines.
+  for (const [k, v] of Object.entries(freshSecrets())) console.log(`${k}=${v}`);
 }
