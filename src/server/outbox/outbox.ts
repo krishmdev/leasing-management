@@ -1,5 +1,5 @@
 import { uuidv7 } from "@/lib/ids";
-import type { DbOrTx } from "@/server/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
 import { faults, SimulatedCrash } from "@/server/faults";
 import { canonicalJson, sha256Hex } from "@/server/crypto/tokens";
@@ -28,16 +28,19 @@ export interface DocumentPayload {
   leaseId?: string;
 }
 
-export async function enqueueEmail(client: DbOrTx, agencyId: string, key: string, payload: EmailPayload, availableAt?: Date) {
+/** Anything with an outboxMessage delegate (base or tenant client, or a transaction of either). */
+type OutboxClient = { outboxMessage: { createMany(args: { data: Prisma.OutboxMessageCreateManyInput[]; skipDuplicates?: boolean }): Promise<unknown> } };
+
+export async function enqueueEmail(client: OutboxClient, agencyId: string, key: string, payload: EmailPayload, availableAt?: Date) {
   await client.outboxMessage.createMany({
-    data: [{ id: uuidv7(), agencyId, kind: "EMAIL", idempotencyKey: key, payload: payload as object, availableAt: availableAt ?? new Date() }],
+    data: [{ id: uuidv7(), agencyId, kind: "EMAIL", idempotencyKey: key, payload: payload as unknown as Prisma.InputJsonObject, availableAt: availableAt ?? new Date() }],
     skipDuplicates: true,
   });
 }
 
-export async function enqueueDocument(client: DbOrTx, agencyId: string, key: string, payload: DocumentPayload) {
+export async function enqueueDocument(client: OutboxClient, agencyId: string, key: string, payload: DocumentPayload) {
   await client.outboxMessage.createMany({
-    data: [{ id: uuidv7(), agencyId, kind: "DOCUMENT", idempotencyKey: key, payload: payload as object }],
+    data: [{ id: uuidv7(), agencyId, kind: "DOCUMENT", idempotencyKey: key, payload: payload as unknown as Prisma.InputJsonObject }],
     skipDuplicates: true,
   });
 }
