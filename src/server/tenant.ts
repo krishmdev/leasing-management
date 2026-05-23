@@ -64,6 +64,13 @@ function checkGlobalArgs(model: string, args: Record<string, unknown>) {
   }
 }
 
+/** pg-boss's own SQL (sendInTx inside a tenant transaction). Touches only the pgboss schema. */
+function isPgBossSql(args: unknown) {
+  const text = Array.isArray(args) ? args[0] : (args as { query?: unknown })?.query;
+  if (typeof text !== "string" || !/\bpgboss\./.test(text)) return false;
+  return ![...TENANT_MODELS].some((m) => text.includes(`"${m}"`));
+}
+
 function rawAllowed(args: unknown, agencyId: string) {
   const sql = args as { strings?: readonly string[]; values?: readonly unknown[] } | undefined;
   if (!sql || !Array.isArray(sql.strings) || !Array.isArray(sql.values)) return false; // *Unsafe variants
@@ -77,7 +84,8 @@ export function tenantDb(agencyId: string, base: Db = db()) {
     query: {
       async $allOperations({ model, operation, args, query }) {
         if (!model) {
-          if (/raw/i.test(operation) && (/unsafe/i.test(operation) || !rawAllowed(args, agencyId))) {
+          const ok = /unsafe/i.test(operation) ? isPgBossSql(args) : rawAllowed(args, agencyId);
+          if (/raw/i.test(operation) && !ok) {
             throw new TenantViolation(`${operation} is not available on a tenant client; use tenantRaw(agencyId, tx)`);
           }
           return query(args);

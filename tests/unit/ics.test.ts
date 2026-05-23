@@ -9,9 +9,16 @@ const base = {
   location: "4701 Telegraph Ave, Oakland",
   description: "Meet Luis at the front gate.",
   organizer: { name: "Bayview", email: "leasing@bayview.test" },
+  stamp: new Date("2026-10-01T12:00:00Z"),
 };
 
 describe("ics", () => {
+  it("is deterministic: same showing state renders the same bytes", () => {
+    const a = buildIcs({ ...base, sequence: 0, method: "REQUEST" });
+    expect(buildIcs({ ...base, sequence: 0, method: "REQUEST" })).toBe(a);
+    expect(a).toContain("DTSTAMP:20261001T120000Z");
+  });
+
   it("has a stable UID, sequence and REQUEST method", () => {
     const v = buildIcs({ ...base, sequence: 0, method: "REQUEST" });
     expect(v).toContain("UID:showing-0192@leasing.test");

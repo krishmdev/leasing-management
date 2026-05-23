@@ -11,6 +11,8 @@ export interface IcsInput {
   description: string;
   organizer: { name: string; email: string };
   url?: string;
+  /** DTSTAMP. The showing's last-change time, so re-rendering the same invite is byte-identical. */
+  stamp: Date;
 }
 
 const utcParts = (d: Date): [number, number, number, number, number] => [
@@ -38,9 +40,11 @@ export function buildIcs(i: IcsInput): string {
     organizer: i.organizer,
     status: i.method === "CANCEL" ? "CANCELLED" : "CONFIRMED",
     productId: "leasing-management/ics",
+    lastModified: utcParts(i.stamp),
     ...(i.url ? { url: i.url } : {}),
   };
-  const { error, value } = createEvent(attrs);
+  // `timestamp` isn't in the ics typings but the formatter reads it for DTSTAMP.
+  const { error, value } = createEvent({ ...attrs, timestamp: i.stamp.getTime() } as EventAttributes);
   if (error || !value) throw error ?? new Error("ics generation failed");
   return value;
 }
