@@ -59,7 +59,7 @@ export interface OutboxRow {
 export interface DispatchDeps {
   transport: EmailTransport;
   compose: (agencyId: string, p: EmailPayload, key: string) => Promise<OutgoingEmail | null>;
-  renderDocument?: (row: OutboxRow & { payload: DocumentPayload }) => Promise<void>;
+  renderDocument?: (row: OutboxRow & { payload: DocumentPayload }) => Promise<unknown>;
   workerId: string;
   leaseMs?: number;
   maxAttempts?: number;
