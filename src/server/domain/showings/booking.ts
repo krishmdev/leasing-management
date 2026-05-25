@@ -5,6 +5,7 @@ import { deriveToken, hashToken } from "@/server/crypto/tokens";
 import { enqueueEmail } from "@/server/outbox/outbox";
 import { audit } from "@/server/audit/audit";
 import { tenantDb, type TenantTx } from "@/server/tenant";
+import { withTxRetry } from "@/server/txRetry";
 import { ContactInput, advanceStage, ensureOpportunity, upsertLead } from "@/server/domain/leads/service";
 import { generateSlots, pickAgent, type Slot } from "./slots";
 
@@ -51,7 +52,9 @@ export async function bookShowing(agencyId: string, unitId: string, input: z.inp
   const { token, hash } = deriveToken("showing", id, 1);
 
   try {
-    const showing = await t.$transaction(async (tx) => {
+    // Two inserts racing on a GiST exclusion constraint can deadlock instead of one getting
+    // 23P01; retrying lets the loser see the winner's row and fail cleanly.
+    const showing = await withTxRetry(() => t.$transaction(async (tx) => {
       const lead = await upsertLead(tx, agencyId, data);
       await ensureOpportunity(tx, agencyId, lead.id, unit.id);
       await advanceStage(tx, agencyId, lead.id, unit.id, "SHOWING");
@@ -61,7 +64,7 @@ export async function bookShowing(agencyId: string, unitId: string, input: z.inp
       await queueShowingMail(tx, agencyId, s, "showing.confirmed");
       await audit({ agencyId, actorType: "APPLICANT", action: "showing.booked", entity: "Showing", entityId: s.id, metadata: { agentUserId } }, tx);
       return s;
-    });
+    }));
     return { showing, manageToken: token };
   } catch (e) {
     if (pgCode(e) === "23P01") throw new SlotTakenError(await availableSlots(agencyId, 21, now));
@@ -69,12 +72,15 @@ export async function bookShowing(agencyId: string, unitId: string, input: z.inp
   }
 }
 
-async function queueShowingMail(tx: TenantTx, agencyId: string, s: { id: string; leadId: string; icsSequence: number; startsAt: Date }, template: string) {
-  // Payloads are references only. compose() re-reads the showing and re-derives the manage link.
+async function queueShowingMail(tx: TenantTx, agencyId: string, s: { id: string; leadId: string; icsSequence: number; startsAt: Date; endsAt: Date; agentUserId: string; changedAt: Date }, template: string) {
+  // No PII in the payload: ids plus the invite's own state at this sequence (times, agent id),
+  // so a late or retried send renders exactly the invite that was current when it was queued.
+  // compose() re-derives the manage link from the showing row.
+  const snapshot = { startsAt: s.startsAt.toISOString(), endsAt: s.endsAt.toISOString(), agentUserId: s.agentUserId, changedAt: s.changedAt.toISOString() };
   await enqueueEmail(tx, agencyId, `mail:showing:${s.id}:${template}:${s.icsSequence}`, {
     template,
     to: { kind: "lead", id: s.leadId },
-    params: { showingId: s.id, sequence: s.icsSequence },
+    params: { showingId: s.id, sequence: s.icsSequence, ...snapshot },
   });
   if (template === "showing.canceled") return;
   for (const off of reminderOffsetsMin()) {
@@ -85,7 +91,7 @@ async function queueShowingMail(tx: TenantTx, agencyId: string, s: { id: string;
     await enqueueEmail(tx, agencyId, `mail:showing:${s.id}:reminder:${off}:${s.icsSequence}`, {
       template: "showing.reminder",
       to: { kind: "lead", id: s.leadId },
-      params: { showingId: s.id, sequence: s.icsSequence, offsetMin: off },
+      params: { showingId: s.id, sequence: s.icsSequence, offsetMin: off, ...snapshot },
     }, at);
   }
 }
@@ -103,7 +109,7 @@ export async function rescheduleShowing(token: string, start: Date, now = new Da
   if (!slot) throw new SlotTakenError(slots);
   const agentUserId = slot.agentIds.includes(s.agentUserId) ? s.agentUserId : slot.agentIds[0];
   try {
-    return await tenantDb(s.agencyId).$transaction(async (tx) => {
+    return await withTxRetry(() => tenantDb(s.agencyId).$transaction(async (tx) => {
       const r = await tx.showing.updateManyAndReturn({
         where: { id: s.id, status: "SCHEDULED", icsSequence: s.icsSequence },
         data: { startsAt: slot.start, endsAt: slot.end, agentUserId, icsSequence: { increment: 1 }, changedAt: new Date() },
@@ -112,7 +118,7 @@ export async function rescheduleShowing(token: string, start: Date, now = new Da
       await queueShowingMail(tx, s.agencyId, r[0], "showing.rescheduled");
       await audit({ agencyId: s.agencyId, actorType: "APPLICANT", action: "showing.rescheduled", entity: "Showing", entityId: s.id, metadata: { sequence: r[0].icsSequence } }, tx);
       return r[0];
-    });
+    }));
   } catch (e) {
     if (pgCode(e) === "23P01") throw new SlotTakenError(await availableSlots(s.agencyId, 21, now));
     throw e;

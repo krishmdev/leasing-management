@@ -81,11 +81,21 @@ const footer = (ctx: Ctx) =>
   `${ctx.agency.name} · ${ctx.agency.phone} · ${ctx.agency.email}`;
 
 async function showingParts(ctx: Ctx, params: Record<string, unknown>) {
-  const s = await ctx.t.showing.findUnique({
+  const row = await ctx.t.showing.findUnique({
     where: { id: String(params.showingId) },
     include: { unit: { include: { property: true } } },
   });
-  if (!s) return null;
+  if (!row) return null;
+  // Render the invite as it was when this email was queued (see queueShowingMail).
+  const s = {
+    ...row,
+    icsSequence: Number(params.sequence ?? row.icsSequence),
+    startsAt: params.startsAt ? new Date(String(params.startsAt)) : row.startsAt,
+    endsAt: params.endsAt ? new Date(String(params.endsAt)) : row.endsAt,
+    agentUserId: String(params.agentUserId ?? row.agentUserId),
+    changedAt: params.changedAt ? new Date(String(params.changedAt)) : row.changedAt,
+    currentSequence: row.icsSequence,
+  };
   const agent = await ctx.t.user.findUnique({ where: { id: s.agentUserId } });
   const where = `${s.unit.property.street}, ${s.unit.property.city}`;
   const when = `${dateLabel(s.startsAt, ctx.agency.timezone, { weekday: "long", month: "long", day: "numeric" })} at ${timeLabel(s.startsAt, ctx.agency.timezone)}`;
@@ -176,7 +186,7 @@ const COMPOSERS: Record<string, Composer> = {
 
   "showing.rescheduled": async (ctx, to, params) => {
     const p = await showingParts(ctx, params);
-    if (!p || p.s.icsSequence !== Number(params.sequence)) return null;
+    if (!p) return null;
     return render(
       to,
       `Showing moved to ${p.when}`,
@@ -221,7 +231,7 @@ const COMPOSERS: Record<string, Composer> = {
     if (
       !p ||
       p.s.status !== "SCHEDULED" ||
-      p.s.icsSequence !== Number(params.sequence)
+      p.s.currentSequence !== p.s.icsSequence
     )
       return null;
     return render(to, `Reminder: showing ${p.when}`, {

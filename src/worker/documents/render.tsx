@@ -1,6 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { sha256Hex } from "@/server/crypto/tokens";
-import { decryptField } from "@/server/crypto/fieldEncryption";
 import { tenantDb } from "@/server/tenant";
 import { putObject } from "@/server/storage";
 import type { DocumentPayload, OutboxRow } from "@/server/outbox/outbox";

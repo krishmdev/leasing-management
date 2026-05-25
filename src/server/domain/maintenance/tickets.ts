@@ -17,8 +17,7 @@ export const TicketInput = z.object({
   permissionToEnter: z.coerce.boolean(),
 });
 
-const RANK = { LOW: 0, NORMAL: 1, HIGH: 2, EMERGENCY: 3 } as const;
-type Urgency = keyof typeof RANK;
+type Urgency = "LOW" | "NORMAL" | "HIGH" | "EMERGENCY";
 export const MAX_PHOTOS = 5;
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
