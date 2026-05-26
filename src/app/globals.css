@@ -26,6 +26,10 @@
   --info: #2952cc;
   --info-bg: #e8eefc;
   --focus: #2952cc;
+  /* chart roles (validated: scripts in the dataviz reference, light surface) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --grid: #e7e5de;
   --font-display: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
 }
