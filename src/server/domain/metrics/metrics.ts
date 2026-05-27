@@ -57,8 +57,8 @@ export async function dashboardMetrics(t: TenantDb, now = new Date()) {
   const noShowRate = attended ? (sc.NO_SHOW ?? 0) / attended : null;
   const turnaroundH = median(screened.map((s) => (s.updatedAt.getTime() - s.createdAt.getTime()) / 3_600_000));
 
-  // Vacancy: a unit is vacant today if no residency covers today. Days vacant count from the
-  // later of its last move-out and its listed available date.
+  // Vacancy: a unit is vacant today if no residency covers today. Days vacant count from its
+  // last move-out (make-ready time is vacancy too), or from its available date if it never had one.
   const today = now.getTime();
   const covered = new Set(residencies.filter((r) => r.moveIn.getTime() <= today && (!r.moveOut || r.moveOut.getTime() > today)).map((r) => r.unitId));
   const lastOut = new Map<string, number>();
@@ -67,7 +67,7 @@ export async function dashboardMetrics(t: TenantDb, now = new Date()) {
   let vacancyLossCents = 0;
   let vacantDays = 0;
   for (const u of vacant) {
-    const from = Math.max(lastOut.get(u.id) ?? 0, u.availableOn.getTime());
+    const from = lastOut.get(u.id) ?? u.availableOn.getTime();
     const days = Math.max(0, Math.floor((today - from) / DAY));
     vacantDays += days;
     vacancyLossCents += Math.round((u.rentCents / 30) * days);

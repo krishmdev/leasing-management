@@ -15,6 +15,11 @@ export async function seedHistory(agencyId: string, units: { id: string; rentCen
   const now = Date.now();
   const occupied = units.slice(Math.floor(units.length * 0.3)); // the rest are the listings
   const residencies: { id: string; unitId: string; userId: string | null }[] = [];
+  // The units now listed were vacated recently; that's where vacancy loss comes from.
+  for (const u of units.slice(0, Math.floor(units.length * 0.3))) {
+    const out = new Date(now - faker.number.int({ min: 4, max: 45 }) * 86_400_000);
+    await db().residency.create({ data: { agencyId, unitId: u.id, moveIn: new Date(out.getTime() - faker.number.int({ min: 380, max: 1100 }) * 86_400_000), moveOut: out, status: "PAST", rentCents: u.rentCents - 10_000 } });
+  }
   for (const [i, u] of occupied.entries()) {
     const leadId = uuidv7();
     const name = faker.person.fullName();
@@ -34,7 +39,8 @@ export async function seedHistory(agencyId: string, units: { id: string; rentCen
       userId = user.id;
     }
     const r = await db().residency.create({
-      data: { agencyId, unitId: u.id, leadId, residentUserId: userId, moveIn: currentStart, moveOut: new Date(currentStart.getTime() + 365 * 86_400_000), status: i % 11 === 5 ? "NOTICE" : "CURRENT", rentCents: u.rentCents },
+      // Month-to-month after the first year, so most current residencies have no end date.
+      data: { agencyId, unitId: u.id, leadId, residentUserId: userId, moveIn: currentStart, moveOut: i % 11 === 5 ? new Date(now + 30 * 86_400_000) : null, status: i % 11 === 5 ? "NOTICE" : "CURRENT", rentCents: u.rentCents },
     });
     await db().unit.update({ where: { id: u.id }, data: { status: "LEASED" } });
     residencies.push({ id: r.id, unitId: u.id, userId });

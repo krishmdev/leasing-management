@@ -9,9 +9,11 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 export function MovesChart({ data }: { data: { month: string; moveIns: number; moveOuts: number }[] }) {
   const last = data.at(-1);
   const fmt = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
-  const endLabel = (text: string) =>
+  // When both series end on the same value, nudge the labels apart instead of overprinting.
+  const tie = last && last.moveIns === last.moveOuts;
+  const endLabel = (text: string, dy: number) =>
     function EndLabel({ index, x, y }: { index?: number; x?: number | string; y?: number | string }) {
-      return index === data.length - 1 ? <text x={Number(x) + 8} y={Number(y) + 4} fontSize={11} fill="var(--ink-2)">{text}</text> : <g />;
+      return index === data.length - 1 ? <text x={Number(x) + 8} y={Number(y) + 4 + (tie ? dy : 0)} fontSize={11} fill="var(--ink-2)">{text}</text> : <g />;
     };
   return (
     <figure className="viz" aria-label="Move-ins and move-outs by month, last 18 months">
@@ -30,8 +32,8 @@ export function MovesChart({ data }: { data: { month: string; moveIns: number; m
               contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid var(--line)", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}
               labelFormatter={(m) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
             />
-            <Line type="monotone" dataKey="moveIns" name="Move-ins" stroke="var(--series-1)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }} isAnimationActive={false} label={endLabel(`Move-ins ${last?.moveIns ?? 0}`)} />
-            <Line type="monotone" dataKey="moveOuts" name="Move-outs" stroke="var(--series-2)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }} isAnimationActive={false} label={endLabel(`Move-outs ${last?.moveOuts ?? 0}`)} />
+            <Line type="linear" dataKey="moveIns" name="Move-ins" stroke="var(--series-1)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }} isAnimationActive={false} label={endLabel(`Move-ins ${last?.moveIns ?? 0}`, -7)} />
+            <Line type="linear" dataKey="moveOuts" name="Move-outs" stroke="var(--series-2)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }} isAnimationActive={false} label={endLabel(`Move-outs ${last?.moveOuts ?? 0}`, 7)} />
           </LineChart>
         </ResponsiveContainer>
       </div>
