@@ -2,6 +2,7 @@
   "name": "leasing-management",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "concurrently -k -n web,worker -c blue,magenta \"next dev -p ${PORT:-3041}\" \"tsx watch src/worker/index.ts\"",
     "build": "next build",
