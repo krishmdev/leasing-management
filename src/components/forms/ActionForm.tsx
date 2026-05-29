@@ -12,15 +12,18 @@ export function ActionForm({
   action,
   children,
   className,
+  successBanner = true,
 }: {
   action: (s: FormState, fd: FormData) => Promise<FormState>;
   children: (state: FormState, pending: boolean) => ReactNode;
   className?: string;
+  /** Set false when the children render their own success view. */
+  successBanner?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
   return (
     <form action={formAction} className={cx(className)} noValidate>
-      {state?.message && (
+      {state?.message && (!state.ok || successBanner) && (
         <div role={state.ok ? "status" : "alert"} className={cx("mb-4 rounded-md px-3.5 py-3 text-sm", state.ok ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>
           {state.message}
         </div>

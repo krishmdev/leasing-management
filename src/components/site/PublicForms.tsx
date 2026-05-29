@@ -37,7 +37,7 @@ function Contact({ s }: { s: FormState }) {
 
 export function InterestForm({ action, minDate, applyHref }: { action: Act; minDate: string; applyHref: string }) {
   return (
-    <ActionForm action={action} className="space-y-5 rounded-3xl bg-surface p-6 ring-1 ring-black/5 md:p-8">
+    <ActionForm action={action} successBanner={false} className="space-y-5 rounded-3xl bg-surface p-6 ring-1 ring-black/5 md:p-8">
       {(s) =>
         s?.ok ? (
           <Done message={s.message!} next={{ href: applyHref, label: "Start my application" }} />
@@ -95,7 +95,7 @@ export function SlotPicker({ slots, tz, name = "start", initial }: { slots: stri
 
 export function ScheduleForm({ action, slots, tz, applyHref }: { action: Act; slots: string[]; tz: string; applyHref: string }) {
   return (
-    <ActionForm action={action} className="space-y-6 rounded-3xl bg-surface p-6 ring-1 ring-black/5 md:p-8">
+    <ActionForm action={action} successBanner={false} className="space-y-6 rounded-3xl bg-surface p-6 ring-1 ring-black/5 md:p-8">
       {(s) =>
         s?.ok ? (
           <Done message={s.message!} next={{ href: applyHref, label: "Apply now" }} />

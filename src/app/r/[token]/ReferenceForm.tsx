@@ -23,7 +23,7 @@ function Choice({ name, options, legend, err }: { name: string; options: [string
 
 export function ReferenceForm({ token }: { token: string }) {
   return (
-    <ActionForm action={referenceAction.bind(null, token)} className="mt-8 space-y-5 rounded-xl bg-surface p-6 ring-1 ring-line">
+    <ActionForm action={referenceAction.bind(null, token)} successBanner={false} className="mt-8 space-y-5 rounded-xl bg-surface p-6 ring-1 ring-line">
       {(s) =>
         s?.ok ? (
           <p role="status" className="text-center">{s.message}</p>

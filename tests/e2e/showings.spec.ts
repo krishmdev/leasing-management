@@ -3,8 +3,8 @@ import { attachmentText, uniq, waitForMail } from "./helpers";
 
 test("interest, then a booked showing whose email carries an .ics invite", async ({ page }) => {
   await page.goto("/bayview/listings");
-  await page.locator("a[href^='/bayview/listings/']").first().click();
-  const listing = page.url();
+  const listing = (await page.locator("a[href^='/bayview/listings/']").first().getAttribute("href"))!;
+  await page.goto(listing);
 
   const ioi = uniq("ioi");
   await page.getByRole("link", { name: "I'm interested" }).click();

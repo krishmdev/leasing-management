@@ -85,7 +85,7 @@ test("assisted agency: apply, reference, screening, staff approval, lease signed
   await expect(staff.getByText("Agent timeline")).toBeVisible();
   await expect(staff.getByText("policy.apply")).toBeVisible();
   await staff.getByRole("button", { name: "Record decision" }).click();
-  await expect(staff.getByText(/Decision recorded/)).toBeVisible();
+  await expect(staff.getByText(/approve by staff/)).toBeVisible();
 
   const leaseMail = await waitForMail(email, /Your lease for/);
   await page.goto(linkIn(leaseMail.Text, /https?:\/\/\S+\/lease\/[A-Za-z0-9_-]+/));
