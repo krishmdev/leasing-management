@@ -6,6 +6,9 @@ import { screeningKey } from "@/server/domain/screening/invite";
 import { handleScreeningWebhook } from "@/server/domain/screening/webhook";
 import { runSubmitted } from "@/server/agent/pipeline";
 import { executeDecision } from "@/server/domain/decisions/decide";
+import { reapStranded } from "@/server/jobs/reaper";
+import { boss, Q } from "@/server/jobs/queues";
+import { completeHostedFlow } from "@/mock-cra/service";
 import { resetDb } from "../helpers/db";
 import { agencyWith, answerReferences, completeScreening, evaluate, flushOutbox, mail, submittedApplication, throughEvaluation, webhookRequest } from "../helpers/pipeline";
 
@@ -103,7 +106,8 @@ describe("crash safety", () => {
     expect(await db().decision.count({ where: { applicationId: s.applicationId } })).toBe(1);
     await expireLeases(s.applicationId);
     const again = await evaluate(agency.id, s.applicationId); // pg-boss redelivery
-    expect(again.output).toMatchObject({ action: "AUTO_EXECUTE", executed: "noop" });
+    // The application has moved on (LEASE_SENT), so the redelivered job does nothing at all.
+    expect(again.output).toMatchObject({ action: "SKIPPED" });
     expect(await db().decision.count({ where: { applicationId: s.applicationId } })).toBe(1);
     await flushOutbox();
     const lead = (await db().application.findUniqueOrThrow({ where: { id: s.applicationId } })).leadId;
@@ -111,6 +115,41 @@ describe("crash safety", () => {
     expect(keys.filter((k) => k.includes(":decision:"))).toHaveLength(1);
     expect(await db().generatedDocument.count({ where: { applicationId: s.applicationId, kind: "LEASE" } })).toBe(1);
     expect(mail.delivered.filter((m) => m.to === s.email && /Approved/.test(m.subject))).toHaveLength(1);
+  });
+});
+
+describe("reaper and job dedupe", () => {
+  it("an invite that crashed is re-queued to the invite job, never to evaluation, and the application still gets evaluated", async () => {
+    const { agency, unit } = await agencyWith("MANUAL");
+    const s = await submittedApplication(agency.id, unit.id);
+    faults.arm("screening:after-provider-call");
+    await expect(runSubmitted({ agencyId: agency.id, applicationId: s.applicationId })).rejects.toBeInstanceOf(SimulatedCrash);
+    await expireLeases(s.applicationId);
+    const sent: [string, object, string][] = [];
+    await reapStranded(async (name, data, key) => void sent.push([name, data, key]));
+    expect(sent).toEqual([[Q.submitted, { agencyId: agency.id, applicationId: s.applicationId }, `submitted:${s.applicationId}`]]);
+    // A stray evaluate job before screening is done is a no-op and records no input snapshot.
+    expect((await evaluate(agency.id, s.applicationId)).output).toMatchObject({ action: "SKIPPED" });
+    expect(await db().agentStep.count({ where: { applicationId: s.applicationId, stepName: "screening.fetchSummary" } })).toBe(0);
+    await runSubmitted({ agencyId: agency.id, applicationId: s.applicationId });
+    await answerReferences(s.applicationId);
+    const sr = await db().screeningRequest.findFirstOrThrow({ where: { applicationId: s.applicationId } });
+    const { inv, eventId } = await completeHostedFlow(sr.providerApplicantRef!, "excellent");
+    await handleScreeningWebhook("mock", webhookRequest({ id: eventId, type: "screening.completed", ref: inv.ref }));
+    const r = await evaluate(agency.id, s.applicationId);
+    expect(r.output).toMatchObject({ action: "SUGGEST" });
+    expect(await db().agentStep.count({ where: { applicationId: s.applicationId, status: "SUCCEEDED" } })).toBe(6);
+  });
+
+  it("two sends with the same singleton key make one agent job", async () => {
+    const b = await boss();
+    const key = `evaluate:dedupe-${Date.now()}`;
+    const first = await b.send(Q.evaluate, { x: 1 }, { singletonKey: key });
+    const second = await b.send(Q.evaluate, { x: 1 }, { singletonKey: key });
+    expect(first).toBeTruthy();
+    expect(second).toBeNull();
+    const [row] = await db().$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM pgboss.job WHERE name = ${Q.evaluate} AND singleton_key = ${key}`;
+    expect(Number(row.n)).toBe(1);
   });
 });
 

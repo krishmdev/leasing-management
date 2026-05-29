@@ -115,7 +115,7 @@ export async function runStep<O>(
     if (row.inputSha256 !== inputSha) {
       if (row.status !== "SUCCEEDED" && row.status !== "DEAD") {
         await client.$executeRaw`UPDATE "AgentStep" SET status = 'DEAD', error = 'input drift', "leaseOwner" = NULL, "leaseUntil" = NULL
-          WHERE id = ${row.id} AND status IN ('PENDING', 'FAILED')`;
+          WHERE id = ${row.id} AND (status IN ('PENDING', 'FAILED') OR (status = 'RUNNING' AND "leaseUntil" < clock_timestamp()))`;
       }
       throw new StepInputDrift(key.stepName);
     }
@@ -141,6 +141,7 @@ export async function runStep<O>(
         const owned = await t.$queryRaw<{ id: string }[]>`
           SELECT id FROM "AgentStep"
           WHERE id = ${row.id} AND "agencyId" = ${key.agencyId} AND "leaseOwner" = ${claim} AND status = 'RUNNING'
+            AND "leaseUntil" > clock_timestamp()
           FOR UPDATE`;
         if (owned.length !== 1) throw new StepLeaseLost(key.stepName);
         return fn(t);
@@ -185,8 +186,8 @@ export async function runStep<O>(
  * singleton key keeps that from piling up duplicates.
  */
 export async function strandedSteps(idleMs = STEP.reapIdleMs) {
-  return db().$queryRaw<{ agencyId: string; applicationId: string; criteriaVersionId: string }[]>`
-    SELECT DISTINCT "agencyId", "applicationId", "criteriaVersionId" FROM "AgentStep"
+  return db().$queryRaw<{ agencyId: string; applicationId: string; criteriaVersionId: string; stepName: string }[]>`
+    SELECT DISTINCT "agencyId", "applicationId", "criteriaVersionId", "stepName" FROM "AgentStep"
     WHERE (status = 'RUNNING' AND "leaseUntil" < clock_timestamp())
        OR (status IN ('PENDING', 'FAILED') AND COALESCE("startedAt", "createdAt") < clock_timestamp() - (${idleMs}::int * interval '1 millisecond'))
     LIMIT 200`;

@@ -140,3 +140,35 @@ describe("retention", () => {
     expect(await db().auditLog.count({ where: { agencyId: agency.id, action: "pii.purged" } })).toBe(1);
   });
 });
+
+describe("retention across tenants", () => {
+  async function declinedApplicantAt(agencyId: string, unitId: string) {
+    const s = await submittedApplication(agencyId, unitId, { incomeCents: 540_000 });
+    await answerReferences(s.applicationId);
+    await completeScreening(agencyId, s.applicationId, "poor");
+    await evaluate(agencyId, s.applicationId);
+    await executeDecision(agencyId, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [] });
+    return s;
+  }
+  const future = () => new Date(Date.now() + 800 * 86_400_000);
+
+  it("keeps the user if they're staff at another agency", async () => {
+    const a = await agencyWith("MANUAL");
+    const b = await agencyWith("MANUAL");
+    const s = await declinedApplicantAt(a.agency.id, a.unit.id);
+    await db().member.create({ data: { id: crypto.randomUUID(), organizationId: b.agency.id, userId: s.userId, role: "agent", createdAt: new Date() } });
+    await purgeExpired({ dryRun: false, now: future(), agencyId: a.agency.id });
+    expect(await db().user.findUnique({ where: { id: s.userId } })).not.toBeNull();
+    expect(await db().member.count({ where: { userId: s.userId } })).toBe(1);
+    expect((await db().application.findUniqueOrThrow({ where: { id: s.applicationId } })).legalNameEnc).toBeNull();
+  });
+
+  it("keeps the user if they're a resident at another agency", async () => {
+    const a = await agencyWith("MANUAL");
+    const b = await agencyWith("MANUAL");
+    const s = await declinedApplicantAt(a.agency.id, a.unit.id);
+    await db().residency.create({ data: { agencyId: b.agency.id, unitId: b.unit.id, residentUserId: s.userId, moveIn: new Date("2026-01-01"), status: "CURRENT", rentCents: 1 } });
+    await purgeExpired({ dryRun: false, now: future(), agencyId: a.agency.id });
+    expect(await db().user.findUnique({ where: { id: s.userId } })).not.toBeNull();
+  });
+});

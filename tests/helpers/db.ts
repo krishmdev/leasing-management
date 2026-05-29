@@ -8,10 +8,8 @@ export async function resetDb() {
   const rows = await db().$queryRaw<{ t: string }[]>`
     SELECT format('%I.%I', schemaname, tablename) AS t FROM pg_tables
     WHERE schemaname IN ('public', 'mockcra') AND tablename <> '_prisma_migrations'`;
-  await db().$transaction([
-    db().$executeRawUnsafe(`SET LOCAL session_replication_role = replica`),
-    db().$executeRawUnsafe(`TRUNCATE ${rows.map((r) => r.t).join(", ")} CASCADE`),
-  ]);
+  // One statement, so there's no batch transaction to time out under load.
+  await db().$executeRawUnsafe(`DO $$ BEGIN SET LOCAL session_replication_role = replica; TRUNCATE ${rows.map((r) => r.t).join(", ")} CASCADE; END $$`);
 }
 
 export async function makeAgency(slug = `agency-${uuidv7().slice(-6)}`, opts: { automation?: object; paused?: boolean } = {}) {

@@ -10,7 +10,7 @@ const { transport } = await import("@/server/email/transport");
 const { composeEmail } = await import("@/server/email/compose");
 const { renderDocument } = await import("./documents/render");
 const { runEvaluation, runSubmitted } = await import("@/server/agent/pipeline");
-const { strandedSteps, StepBusy } = await import("@/server/agent/durable");
+const { reapStranded } = await import("@/server/jobs/reaper");
 const { sweepHolds } = await import("@/server/jobs/sweeps");
 const { expireReferences } = await import("@/server/domain/references/service");
 const { checkSla } = await import("@/server/domain/maintenance/sla");
@@ -34,11 +34,7 @@ await b.work<AppJob>(Q.evaluate, { localConcurrency: 2 }, async ([job]) => {
   await runEvaluation({ agencyId: job.data.agencyId, applicationId: job.data.applicationId, criteriaVersionId: job.data.criteriaVersionId!, signal: job.signal });
 });
 
-await b.work(Q.stepReaper, async () => {
-  for (const s of await strandedSteps()) {
-    await send(Q.evaluate, s, `evaluate:${s.applicationId}:${s.criteriaVersionId}`);
-  }
-});
+await b.work(Q.stepReaper, async () => void (await reapStranded(send)));
 await b.work(Q.holdsSweep, async () => void (await sweepHolds()));
 await b.work(Q.referencesSweep, async () => void (await expireReferences()));
 await b.work(Q.slaCheck, async () => void (await checkSla()));
@@ -74,4 +70,3 @@ async function shutdown() {
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-void StepBusy;

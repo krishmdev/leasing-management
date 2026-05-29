@@ -80,6 +80,12 @@ describe("tenant isolation", () => {
     await expect(tA.organization.findUnique({ where: { id: B.id }, select: { _count: true } })).rejects.toBeInstanceOf(TenantViolation);
     await expect(tA.organization.findMany({ where: { units: { some: {} } } })).rejects.toBeInstanceOf(TenantViolation);
     expect((await tA.organization.findUnique({ where: { id: A.id } }))?.slug).toBe("alpha");
+    // ...at any depth, including tenant -> global -> tenant
+    await expect(tA.member.findMany({ include: { organization: { include: { units: true } } } })).rejects.toBeInstanceOf(TenantViolation);
+    await expect(tA.unit.findMany({ include: { agency: { include: { units: true } } } })).rejects.toBeInstanceOf(TenantViolation);
+    await expect(tA.unit.findMany({ where: { agency: { is: { units: { some: {} } } } } })).rejects.toBeInstanceOf(TenantViolation);
+    await expect(tA.member.findMany({ select: { organization: { select: { _count: true } } } })).rejects.toBeInstanceOf(TenantViolation);
+    expect(Array.isArray(await tA.unit.findMany({ include: { property: true, agency: true } }))).toBe(true);
   });
 
   it("bare raw SQL is refused; tenantRaw requires this tenant's agencyId", async () => {

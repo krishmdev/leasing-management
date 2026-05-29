@@ -34,11 +34,33 @@ export function boss(role: "web" | "worker" = "web"): Promise<PgBoss> {
   return g.__leasingBoss;
 }
 
+/**
+ * Agent queues use the `exclusive` policy: pg-boss only enforces singleton keys under the
+ * short/singleton/stately/exclusive policies, and `exclusive` allows one queued-or-active job per
+ * key, so repeated sends (webhook redeliveries, the reaper) collapse into one job.
+ */
+const AGENT_QUEUES = new Set<string>([Q.submitted, Q.evaluate, Q.screeningWebhook]);
+
+export function queueOptions(name: string) {
+  return AGENT_QUEUES.has(name)
+    ? { policy: "exclusive" as const, ...AGENT_QUEUE }
+    : { policy: "standard" as const, expireInSeconds: 300, retryLimit: 3, retryDelay: 30 };
+}
+
 export async function ensureQueues(b: PgBoss) {
   for (const name of Object.values(Q)) {
-    if (await b.getQueue(name)) continue;
-    const agentLike = name === Q.submitted || name === Q.evaluate || name === Q.screeningWebhook;
-    await b.createQueue(name, agentLike ? { ...AGENT_QUEUE } : { expireInSeconds: 300, retryLimit: 3, retryDelay: 30 });
+    const { policy, ...opts } = queueOptions(name);
+    const existing = await b.getQueue(name);
+    if (existing && existing.policy !== policy) {
+      // Policy can't be changed in place. Dropping the queue loses queued jobs, which is safe:
+      // work state lives in AgentStep rows and the reaper re-enqueues anything unfinished.
+      console.warn(`pg-boss: recreating queue ${name} (${existing.policy} -> ${policy})`);
+      await b.deleteQueue(name);
+    } else if (existing) {
+      await b.updateQueue(name, opts);
+      continue;
+    }
+    await b.createQueue(name, { policy, ...opts });
   }
 }
 

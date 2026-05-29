@@ -45,7 +45,11 @@ export async function runEvaluation(j: JobCtx) {
   const t = tenantDb(j.agencyId);
   const opts = { signal: j.signal };
   const app = await t.application.findUniqueOrThrow({ where: { id: j.applicationId }, include: { unit: true } });
-  const sr = await t.screeningRequest.findFirstOrThrow({ where: { applicationId: j.applicationId, criteriaVersionId: j.criteriaVersionId } });
+  const sr = await t.screeningRequest.findFirst({ where: { applicationId: j.applicationId, criteriaVersionId: j.criteriaVersionId } });
+  // Not ready (or already past this): do nothing, and above all don't snapshot a half-formed input.
+  if (!["SCREENED", "DECISION_PENDING"].includes(app.status) || !sr?.providerApplicantRef || sr.status !== "COMPLETE") {
+    return { output: { action: "SKIPPED", executed: null, reason: `status ${app.status}, screening ${sr?.status ?? "none"}` }, replayed: false, attempt: 0 };
+  }
   const criteria = await criteriaById(t, j.criteriaVersionId);
 
   // 1. Pull the derived report summary from the provider and store it.

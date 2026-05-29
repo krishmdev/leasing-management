@@ -49,17 +49,32 @@ function checkData(model: string, agencyId: string, data: unknown, stamp: boolea
   return d;
 }
 
-/** Global models (Organization, User, Member...) may be read, but not used to reach tenant rows. */
-function checkGlobalArgs(model: string, args: Record<string, unknown>) {
+const STRUCTURAL = new Set(["include", "select", "where", "orderBy", "cursor", "AND", "OR", "NOT", "some", "every", "none", "is", "isNot"]);
+
+/**
+ * Walk include/select/where/orderBy (and nested relation filters) to any depth. A global model
+ * (Organization, User, Member...) may be read, but no path through one may reach a tenant model:
+ * `member -> organization -> units` would otherwise hand back every agency's units.
+ */
+function checkTree(model: string, node: unknown, path: string) {
+  if (!node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const n of node) checkTree(model, n, path);
+    return;
+  }
   const rels = RELATIONS[model] ?? {};
-  for (const key of ["include", "select", "where", "orderBy"] as const) {
-    const v = args[key];
-    if (!v || typeof v !== "object") continue;
-    const entries = Array.isArray(v) ? v.flatMap((o) => Object.keys(o as object)) : Object.keys(v);
-    for (const k of entries) {
-      if (k === "_count" || (k in rels && TENANT_MODELS.has(rels[k]))) {
-        throw new TenantViolation(`${model}.${key}.${k} reaches into tenant data; query the tenant model directly`);
+  for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+    if (k in rels) {
+      const target = rels[k];
+      if (!TENANT_MODELS.has(model) && TENANT_MODELS.has(target)) {
+        throw new TenantViolation(`${path}.${k} reaches tenant model ${target} through global model ${model}; query ${target} directly`);
       }
+      checkTree(target, v, `${path}.${k}`);
+    } else if (k === "_count") {
+      if (!TENANT_MODELS.has(model)) throw new TenantViolation(`${path}._count on global model ${model} can count tenant rows`);
+      checkTree(model, v, `${path}._count`);
+    } else if (STRUCTURAL.has(k)) {
+      checkTree(model, v, path);
     }
   }
 }
@@ -91,8 +106,8 @@ export function tenantDb(agencyId: string, base: Db = db()) {
           return query(args);
         }
         const a = { ...((args ?? {}) as Record<string, unknown>) };
+        checkTree(model, { include: a.include, select: a.select, where: a.where, orderBy: a.orderBy, cursor: a.cursor }, model);
         if (!TENANT_MODELS.has(model)) {
-          checkGlobalArgs(model, a);
           if (DATA_OPS.has(operation)) {
             for (const k of Object.keys((a.data ?? {}) as object)) {
               if (k in (RELATIONS[model] ?? {})) throw new TenantViolation(`nested write through ${model}.${k} is not allowed on a tenant client`);
