@@ -17,11 +17,13 @@ export function SlaChip({ t, now }: { t: SlaClock; now: Date }) {
     met: "bg-ok-bg text-ok",
     "n/a": "bg-black/5 text-muted",
   }[s.resolve];
+  if (s.respond === "breached" && !t.firstRespondedAt) {
+    return <span className="inline-flex whitespace-nowrap rounded bg-bad px-1.5 py-0.5 font-mono text-2xs text-white" title="No response yet and the response deadline has passed">response late</span>;
+  }
   const label =
     s.resolve === "breached" ? `${fmt(s.resolveMsLeft ?? 0)} over` : s.resolve === "paused" ? "paused" : s.resolve === "met" ? "met" : s.resolveMsLeft != null ? `${fmt(s.resolveMsLeft)} left` : "—";
   return (
-    <span className={cx("inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-2xs", style)} title={`Respond: ${s.respond}. Resolve: ${s.resolve}.`}>
-      {s.respond === "breached" && !t.firstRespondedAt && <span aria-label="response overdue">⏱</span>}
+    <span className={cx("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-2xs", style)} title={`Respond: ${s.respond}. Resolve: ${s.resolve}.`}>
       {label}
     </span>
   );

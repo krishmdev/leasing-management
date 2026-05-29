@@ -1,0 +1,36 @@
+#!/bin/sh
+# Runs the whole stack (Next production server + worker) and the Playwright suite against a
+# separate database. Meant to be wrapped in an egress-blocking sandbox, e.g.
+#   $OFFLINE_RUN scripts/e2e.sh
+# Postgres and Mailpit must already be up (docker compose up -d --wait).
+set -eu
+cd "$(dirname "$0")/.."
+[ -f .env ] && set -a && . ./.env && set +a
+
+E2E_PORT="${E2E_PORT:-3042}"
+export DATABASE_URL="${E2E_DATABASE_URL:-postgresql://leasing:leasing@localhost:${PG_PORT:-5441}/leasing_e2e}"
+export APP_URL="http://localhost:${E2E_PORT}"
+export BETTER_AUTH_URL="$APP_URL"
+export PORT="$E2E_PORT"
+export LLM_PROVIDER=offline EMAIL_TRANSPORT=smtp EGRESS_CANARY=1 STORAGE_DIR=storage/e2e REMINDER_OFFSETS_MIN=1440,120 OUTBOX_POLL_MS=500
+unset RESEND_API_KEY GEMINI_API_KEY OPENAI_API_KEY || true
+export E2E_BASE_URL="$APP_URL"
+
+[ -d .next ] || { echo "run 'pnpm build' first (make setup does)"; exit 1; }
+
+pnpm exec tsx scripts/reset-db.ts
+pnpm exec tsx prisma/seed/index.ts
+
+pnpm exec next start -p "$E2E_PORT" > storage/e2e-web.log 2>&1 &
+WEB=$!
+pnpm exec tsx src/worker/index.ts > storage/e2e-worker.log 2>&1 &
+WORKER=$!
+trap 'kill $WEB $WORKER 2>/dev/null || true' EXIT INT TERM
+
+i=0
+until curl -sf "$APP_URL/api/health" >/dev/null 2>&1; do
+  i=$((i + 1)); [ $i -gt 60 ] && { echo "web server didn't come up"; tail -30 storage/e2e-web.log; exit 1; }
+  sleep 1
+done
+
+pnpm exec playwright test "$@"

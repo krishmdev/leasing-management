@@ -10,13 +10,16 @@ import { createTicket, transitionTicket } from "@/server/domain/maintenance/tick
  * imported from a previous property-management tool), so turnover and vacancy have 18 months
  * to work with. Tickets go through the ticket service with backdated clocks.
  */
+/** Every third unit is on the market; the rest are occupied. */
+export const isListed = (_: unknown, i: number) => i % 3 === 0;
+
 export async function seedHistory(agencyId: string, units: { id: string; rentCents: number }[], seed: number, opts: { residentEmail?: string } = {}) {
   faker.seed(seed);
   const now = Date.now();
-  const occupied = units.slice(Math.floor(units.length * 0.3)); // the rest are the listings
+  const occupied = units.filter((u, i) => !isListed(u, i));
   const residencies: { id: string; unitId: string; userId: string | null }[] = [];
   // The units now listed were vacated recently; that's where vacancy loss comes from.
-  for (const u of units.slice(0, Math.floor(units.length * 0.3))) {
+  for (const u of units.filter(isListed)) {
     const out = new Date(now - faker.number.int({ min: 4, max: 45 }) * 86_400_000);
     await db().residency.create({ data: { agencyId, unitId: u.id, moveIn: new Date(out.getTime() - faker.number.int({ min: 380, max: 1100 }) * 86_400_000), moveOut: out, status: "PAST", rentCents: u.rentCents - 10_000 } });
   }
@@ -61,6 +64,7 @@ const TICKETS: { title: string; description: string; flow: string[]; daysAgo: nu
   { title: "Window latch broken", description: "Bedroom window latch snapped, window won't lock.", flow: ["ASSIGNED"], daysAgo: 5 },
   { title: "Grab bars in shower", description: "Could you install grab bars in the shower? It would help with my mobility.", flow: [], daysAgo: 2 },
   { title: "Water stain on ceiling", description: "Brown water stain spreading on the living room ceiling.", flow: ["ASSIGNED", "IN_PROGRESS", "ON_HOLD", "IN_PROGRESS", "RESOLVED"], daysAgo: 25 },
+  { title: "Water pouring from ceiling", description: "Water is pouring through the bathroom ceiling light, flooding the floor.", flow: ["ASSIGNED"], daysAgo: 0 },
   { title: "Garbage disposal jammed", description: "Hums but doesn't spin.", flow: ["ASSIGNED", "IN_PROGRESS", "RESOLVED", "CLOSED"], daysAgo: 30 },
 ];
 

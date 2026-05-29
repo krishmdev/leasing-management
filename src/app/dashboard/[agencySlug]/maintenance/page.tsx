@@ -45,7 +45,7 @@ export default async function Maintenance({ params }: { params: Promise<{ agency
       {tickets.length === 0 ? (
         <EmptyState title="No open tickets">Residents file requests from the portal on your public site.</EmptyState>
       ) : (
-        <div className="grid auto-cols-[minmax(240px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-3">
+        <div className="grid auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-3">
           {COLUMNS.map(([label, statuses]) => {
             const col = tickets.filter((t) => (statuses as readonly string[]).includes(t.status)).sort((a, b) => RANK[a.urgency] - RANK[b.urgency] || a.createdAt.getTime() - b.createdAt.getTime());
             return (

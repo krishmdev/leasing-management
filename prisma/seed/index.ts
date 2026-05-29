@@ -12,7 +12,7 @@ import { seedAgencies } from "./agencies";
 import { seedListings } from "./listings";
 import { seedAvailability, seedFunnel } from "./funnel";
 import { BAYVIEW_PERSONAS, PENINSULA_PERSONAS, seedApplicant } from "./applications";
-import { seedHistory, seedTickets } from "./history";
+import { isListed, seedHistory, seedTickets } from "./history";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
@@ -37,7 +37,7 @@ async function main() {
     const maint = a.staff[`maintenance@${slug}.test`];
     const units = await seedListings(a.id, slug, agents);
     await seedAvailability(a.id, agents, slug === "bayview" ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5]);
-    const listed = units.slice(0, Math.floor(units.length * 0.3));
+    const listed = units.filter(isListed);
     const residencies = await seedHistory(a.id, units, slug === "bayview" ? 7 : 8, slug === "bayview" ? { residentEmail: "resident@bayview.test" } : {});
     await seedFunnel(a.id, listed, owner, slug === "bayview" ? 11 : 12);
     const personas = slug === "bayview" ? BAYVIEW_PERSONAS : PENINSULA_PERSONAS;

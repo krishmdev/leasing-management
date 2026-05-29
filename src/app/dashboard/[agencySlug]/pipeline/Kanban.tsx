@@ -9,7 +9,7 @@ const STAGES = [
   ["SHOWING", "Showing"],
   ["APPLIED", "Applied"],
   ["SCREENED", "Screened"],
-  ["DECISION", "Decision"],
+  ["DECISION", "Decided"],
   ["LEASE_SIGNED", "Lease signed"],
   ["LOST", "Lost"],
 ] as const;
@@ -66,7 +66,7 @@ export function Kanban({ slug, cards }: { slug: string; cards: CardT[] }) {
                 <h2 className="text-[12px] font-semibold uppercase tracking-wide text-ink-2">{label}</h2>
                 <span className="font-mono text-2xs text-muted">{col.length}</span>
               </header>
-              <ul className="space-y-1.5">
+              <ul className="max-h-[68vh] space-y-1.5 overflow-y-auto pr-0.5">
                 {col.length === 0 && <li className="px-1 py-6 text-center text-2xs text-muted">Empty</li>}
                 {col.map((c) => (
                   <li

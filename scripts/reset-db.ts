@@ -3,7 +3,22 @@ import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import pg from "pg";
 
+async function ensureDatabase(url: string) {
+  const u = new URL(url);
+  const name = u.pathname.slice(1);
+  u.pathname = "/postgres";
+  const admin = new pg.Client({ connectionString: u.toString() });
+  await admin.connect();
+  try {
+    const r = await admin.query("SELECT 1 FROM pg_database WHERE datname = $1", [name]);
+    if (r.rowCount === 0) await admin.query(`CREATE DATABASE "${name.replace(/"/g, "")}"`);
+  } finally {
+    await admin.end();
+  }
+}
+
 export async function resetDatabase(url: string) {
+  await ensureDatabase(url);
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
