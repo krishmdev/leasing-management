@@ -128,6 +128,7 @@ export function SummaryDoc({ d }: { d: SummaryData }) {
 
 export interface AdverseData {
   meta: Meta;
+  kind: "DECLINE" | "CONDITIONAL";
   applicant: string;
   address: string;
   reasons: { text: string; basis: string }[];
@@ -141,7 +142,11 @@ export function AdverseActionDoc({ d }: { d: AdverseData }) {
     <Shell meta={d.meta}>
       <Text style={s.h1}>Notice of adverse action</Text>
       <Text style={s.sub}>To {d.applicant} · re: {d.address}</Text>
-      <Text style={s.p}>We are unable to approve your rental application at this time. The principal reasons are:</Text>
+      <Text style={s.p}>
+        {d.kind === "CONDITIONAL"
+          ? "We approved your rental application on conditions (for example a qualified guarantor), which is less favorable than a standard approval. The principal reasons are:"
+          : "We are unable to approve your rental application at this time. The principal reasons are:"}
+      </Text>
       {d.reasons.map((r) => (
         <Text key={r.text} style={s.p}>• {r.text}</Text>
       ))}

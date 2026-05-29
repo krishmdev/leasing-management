@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button, Card, CardHeader, Input } from "@/components/ui";
+import { Button, Card, CardHeader, Select } from "@/components/ui";
 import { revealAction } from "../../actions";
 
 export function RevealPanel({ slug, applicationId }: { slug: string; applicationId: string }) {
@@ -27,7 +27,14 @@ export function RevealPanel({ slug, applicationId }: { slug: string; application
         ) : (
           <form action={action} className="flex gap-2">
             <label htmlFor="purpose" className="sr-only">Reason</label>
-            <Input id="purpose" name="purpose" placeholder="Reason, e.g. calling about move-in" className="h-9" required />
+            <Select id="purpose" name="purpose" defaultValue="" className="h-9" required>
+              <option value="" disabled>Why do you need this?</option>
+              <option value="CONTACT_APPLICANT">Contact the applicant</option>
+              <option value="VERIFY_IDENTITY">Verify identity</option>
+              <option value="PREPARE_LEASE">Prepare the lease</option>
+              <option value="RESPOND_TO_DISPUTE">Respond to a dispute</option>
+              <option value="LEGAL_REQUEST">Legal request</option>
+            </Select>
             <Button disabled={pending} variant="secondary" size="md">Reveal</Button>
           </form>
         )}

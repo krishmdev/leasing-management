@@ -29,6 +29,9 @@ export async function POST(req: Request) {
   } catch (e) {
     const errors = fieldErrors(e);
     if (errors) return Response.json({ error: "Check the highlighted fields.", errors }, { status: 422 });
-    return Response.json({ error: e instanceof Error ? e.message : "Couldn't file the request." }, { status: 400 });
+    // Only our own validation messages go back to the browser; anything else is logged.
+    const known = e instanceof Error && /^(Photos must|At most)/.test(e.message);
+    if (!known) console.error("ticket create failed:", e);
+    return Response.json({ error: known ? (e as Error).message : "We couldn't file the request. Please try again, or call the office." }, { status: known ? 400 : 500 });
   }
 }

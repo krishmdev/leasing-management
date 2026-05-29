@@ -54,7 +54,7 @@ export interface RubricResult {
   llmPoints: number;
 }
 
-const REASONS: Record<Factor["factor"], { code: string; basis: Basis; text: string }> = {
+export const REASONS: Record<Factor["factor"], { code: string; basis: Basis; text: string }> = {
   income: { code: "INSUFFICIENT_INCOME", basis: "APPLICANT_INFO", text: "Income is below the required multiple of your share of the rent" },
   credit: { code: "CREDIT_HISTORY", basis: "CRA", text: "Information in your credit report" },
   evictions: { code: "EVICTION_HISTORY", basis: "CRA", text: "Eviction judgment in the lookback period" },
@@ -148,3 +148,6 @@ export function evaluateRubric(input: RubricInput, c: CriteriaConfig): RubricRes
     .slice(0, 4);
   return { score, breakdown, flags: [...flags].sort(), outcome, conditions, reasonCodes, llmPoints: r1(llmPoints) };
 }
+
+/** The fixed reason list staff choose from when they decline or condition an approval. */
+export const REASON_OPTIONS: ReasonCode[] = (Object.keys(REASONS) as Factor["factor"][]).map((f) => ({ ...REASONS[f], factor: f, pointsLost: 0 }));

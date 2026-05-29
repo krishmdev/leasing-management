@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { faults } from "@/server/faults";
 import { deriveToken } from "@/server/crypto/tokens";
 import { executeDecision } from "@/server/domain/decisions/decide";
+import { REASON_OPTIONS } from "@/server/domain/screening/rubric";
 import { withdrawApplication } from "@/server/domain/decisions/withdraw";
 import { signLease } from "@/server/domain/leases/sign";
 import { sweepHolds } from "@/server/jobs/sweeps";
@@ -81,12 +82,32 @@ describe("autonomous cap and pause, checked at execution time", () => {
     await expect(executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "AUTONOMOUS", decidedByType: "AGENT", reasonCodes: [] })).rejects.toThrow(/only a clean approval/);
   });
 
+  it("a staff decline must list reasons, and the notice carries the CRA block whenever a report exists", async () => {
+    const { agency, unit } = await agencyWith("MANUAL");
+    const s = await pendingApproval(agency.id, unit.id);
+    await evaluate(agency.id, s.applicationId);
+    await expect(executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [], overrideReason: "x" })).rejects.toThrow(/at least one reason/);
+    await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS.find((r) => r.factor === "references")!], overrideReason: "reference concerns on a call" });
+    const n = await db().adverseActionNotice.findUniqueOrThrow({ where: { applicationId: s.applicationId } });
+    expect(n.craSnapshot).toMatchObject({ kind: "DECLINE", usedCra: true, cra: { name: expect.any(String) } });
+  });
+
+  it("a conditional approval also sends an adverse-action notice", async () => {
+    const { agency, unit } = await agencyWith("MANUAL");
+    const s = await pendingApproval(agency.id, unit.id);
+    await evaluate(agency.id, s.applicationId);
+    await executeDecision(agency.id, s.applicationId, { outcome: "CONDITIONAL", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[1]], overrideReason: "guarantor required by owner" });
+    const n = await db().adverseActionNotice.findUniqueOrThrow({ where: { applicationId: s.applicationId } });
+    expect(n.craSnapshot).toMatchObject({ kind: "CONDITIONAL" });
+    expect(await db().outboxMessage.count({ where: { idempotencyKey: `doc:${s.applicationId}:ADVERSE_ACTION:adverseAction.v1` } })).toBe(1);
+  });
+
   it("overriding the recommendation needs a reason", async () => {
     const { agency, unit } = await agencyWith("MANUAL");
     const s = await pendingApproval(agency.id, unit.id);
     await evaluate(agency.id, s.applicationId);
-    await expect(executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [] })).rejects.toThrow(/requires a reason/);
-    const r = await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [], overrideReason: "applicant asked to withdraw by phone" });
+    await expect(executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[0]] })).rejects.toThrow(/requires a reason/);
+    const r = await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[1]], overrideReason: "applicant asked to withdraw by phone" });
     expect(r.status).toBe("executed");
     expect(await db().decision.findFirst({ where: { applicationId: s.applicationId } })).toMatchObject({ overrodeRecommendation: true });
   });

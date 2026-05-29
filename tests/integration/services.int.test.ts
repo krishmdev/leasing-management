@@ -5,6 +5,7 @@ import { bookShowing, SlotTakenError, availableSlots, cancelShowing, rescheduleS
 import { createTicket, transitionTicket, processPhoto } from "@/server/domain/maintenance/tickets";
 import { purgeExpired } from "@/server/domain/retention/purge";
 import { executeDecision } from "@/server/domain/decisions/decide";
+import { REASON_OPTIONS } from "@/server/domain/screening/rubric";
 import { renderDocument, docStorageKey } from "@/worker/documents/render";
 import { getObject } from "@/server/storage";
 import { resetDb, makeUser } from "../helpers/db";
@@ -124,7 +125,7 @@ describe("retention", () => {
     await answerReferences(s.applicationId);
     await completeScreening(agency.id, s.applicationId, "poor");
     await evaluate(agency.id, s.applicationId);
-    await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [] });
+    await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[0]] });
     const future = new Date(Date.now() + 800 * 86_400_000);
     const dry = await purgeExpired({ dryRun: true, now: future, agencyId: agency.id });
     expect(dry[agency.id]).toMatchObject({ credit: 1, applicants: 1 });
@@ -147,7 +148,7 @@ describe("retention across tenants", () => {
     await answerReferences(s.applicationId);
     await completeScreening(agencyId, s.applicationId, "poor");
     await evaluate(agencyId, s.applicationId);
-    await executeDecision(agencyId, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [] });
+    await executeDecision(agencyId, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[0]] });
     return s;
   }
   const future = () => new Date(Date.now() + 800 * 86_400_000);

@@ -6,6 +6,7 @@ import { applicationDetail } from "@/server/domain/desk/applications";
 import { Alert, Badge, Card, CardHeader, PageHeader } from "@/components/ui";
 import { AppStatus, FactorRow, OutcomeBadge, ScoreBar, Timeline, human } from "@/components/desk/bits";
 import { DecisionPanel } from "./DecisionPanel";
+import { REASON_OPTIONS } from "@/server/domain/screening/rubric";
 import { RevealPanel } from "./RevealPanel";
 import { dateLabel, usd } from "@/lib/format";
 
@@ -129,6 +130,8 @@ export default async function ApplicationPage({ params }: { params: Promise<{ ag
               applicationId={app.id}
               status={app.status}
               recommended={rec?.outcome ?? null}
+              reasons={REASON_OPTIONS.map((r) => ({ code: r.code, text: r.text, basis: r.basis }))}
+              suggested={breakdown.reasonCodes.map((r) => r.code)}
               decided={decision ? { outcome: decision.outcome, by: decision.decidedByType, mode: decision.mode, overrode: decision.overrodeRecommendation, reason: decision.overrideReason, at: decision.createdAt.toISOString() } : null}
             />
           )}

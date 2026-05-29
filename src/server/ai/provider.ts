@@ -89,19 +89,29 @@ async function call<T>(
   return { value, provider, model, cached: false };
 }
 
+const MODEL_TIMEOUT_MS = 20_000;
+const withTimeout = (signal?: AbortSignal) => (signal ? AbortSignal.any([signal, AbortSignal.timeout(MODEL_TIMEOUT_MS)]) : AbortSignal.timeout(MODEL_TIMEOUT_MS));
+
 export async function analyzeReference(meta: Omit<CallMeta, "purpose" | "promptVersion">, input: ReferenceDTO, signal?: AbortSignal) {
   const dto = ReferenceDTO.parse(input);
-  const r = await call({ ...meta, purpose: "reference", promptVersion: REFERENCE_PROMPT_VERSION }, dto, ReferenceAnalysis, referencePrompt(dto), () => offlineAnalyzeReference(dto), signal);
+  let r;
+  try {
+    r = await call({ ...meta, purpose: "reference", promptVersion: REFERENCE_PROMPT_VERSION }, dto, ReferenceAnalysis, referencePrompt(dto), () => offlineAnalyzeReference(dto), withTimeout(signal));
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    // Model outage: score the text with the offline lexicon rather than stall the application.
+    return { value: offlineAnalyzeReference(dto), provider: "offline", model: "lexicon-v1 (fallback)", cached: false, guardTripped: false, promptVersion: REFERENCE_PROMPT_VERSION, fallback: true };
+  }
   // Output guard: evidence quotes are shown to staff, so they get the same scan as inputs.
   const tripped = r.value.evidenceQuotes.some(mentionsProtected);
   const value = tripped ? { ...r.value, evidenceQuotes: [] } : r.value;
-  return { ...r, value, guardTripped: tripped, promptVersion: REFERENCE_PROMPT_VERSION };
+  return { ...r, value, guardTripped: tripped, promptVersion: REFERENCE_PROMPT_VERSION, fallback: false };
 }
 
 export async function writeRationale(meta: Omit<CallMeta, "purpose" | "promptVersion">, input: RationaleDTO, signal?: AbortSignal) {
   const dto = RationaleDTO.parse(input);
   try {
-    const r = await call({ ...meta, purpose: "rationale", promptVersion: RATIONALE_PROMPT_VERSION }, dto, Rationale, rationalePrompt(dto), () => templateRationale(dto), signal);
+    const r = await call({ ...meta, purpose: "rationale", promptVersion: RATIONALE_PROMPT_VERSION }, dto, Rationale, rationalePrompt(dto), () => templateRationale(dto), withTimeout(signal));
     if (mentionsProtected(r.value.summary)) return { summary: templateRationale(dto).summary, source: "TEMPLATE" as const, guardTripped: true, model: r.model };
     return { summary: r.value.summary, source: r.provider === "offline" ? ("TEMPLATE" as const) : ("LLM" as const), guardTripped: false, model: r.model };
   } catch (e) {
@@ -113,6 +123,10 @@ export async function writeRationale(meta: Omit<CallMeta, "purpose" | "promptVer
 
 export async function triageTicket(meta: Omit<CallMeta, "purpose" | "promptVersion">, input: TriageDTO, signal?: AbortSignal) {
   const dto = TriageDTO.parse(input);
-  const r = await call({ ...meta, purpose: "triage", promptVersion: TRIAGE_PROMPT_VERSION }, dto, TriageResult, triagePrompt(dto), () => offlineTriage(dto), signal);
-  return { ...r.value, source: r.provider === "offline" ? ("OFFLINE" as const) : ("LLM" as const) };
+  try {
+    const r = await call({ ...meta, purpose: "triage", promptVersion: TRIAGE_PROMPT_VERSION }, dto, TriageResult, triagePrompt(dto), () => offlineTriage(dto), withTimeout(signal));
+    return { ...r.value, source: r.provider === "offline" ? ("OFFLINE" as const) : ("LLM" as const) };
+  } catch {
+    return { ...offlineTriage(dto), source: "OFFLINE" as const };
+  }
 }

@@ -59,7 +59,9 @@ export async function checkSla(now = new Date()) {
     breaches++;
     await tenantDb(t.agencyId).$transaction(async (tx) => {
       await tx.maintenanceTicket.update({ where: { id: t.id }, data: { respondBreached: t.respondBreached || respond, resolveBreached: t.resolveBreached || resolve, escalatedAt: t.escalatedAt ?? now } });
-      await enqueueEmail(tx, t.agencyId, `mail:ticket:${t.id}:breach:${respond ? "respond" : "resolve"}`, { template: "ticket.escalation", to: { kind: "agency-staff", roles: ["owner", "admin"] }, params: { ticketId: t.id, kind: respond ? "respond" : "resolve" } });
+      for (const kind of [...(respond ? ["respond"] : []), ...(resolve ? ["resolve"] : [])]) {
+        await enqueueEmail(tx, t.agencyId, `mail:ticket:${t.id}:breach:${kind}`, { template: "ticket.escalation", to: { kind: "agency-staff", roles: ["owner", "admin"] }, params: { ticketId: t.id, kind } });
+      }
       await audit({ agencyId: t.agencyId, actorType: "SYSTEM", action: "ticket.sla_breached", entity: "MaintenanceTicket", entityId: t.id, metadata: { respond, resolve } }, tx);
     });
   }

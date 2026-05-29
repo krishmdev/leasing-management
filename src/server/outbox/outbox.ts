@@ -33,7 +33,7 @@ type OutboxClient = { outboxMessage: { createMany(args: { data: Prisma.OutboxMes
 
 export async function enqueueEmail(client: OutboxClient, agencyId: string, key: string, payload: EmailPayload, availableAt?: Date) {
   await client.outboxMessage.createMany({
-    data: [{ id: uuidv7(), agencyId, kind: "EMAIL", idempotencyKey: key, payload: payload as unknown as Prisma.InputJsonObject, availableAt: availableAt ?? new Date() }],
+    data: [{ id: uuidv7(), agencyId, kind: "EMAIL", idempotencyKey: key, payload: payload as unknown as Prisma.InputJsonObject, ...(availableAt ? { availableAt } : {}) }],
     skipDuplicates: true,
   });
 }
@@ -74,11 +74,11 @@ export async function claim(limit = 20, leaseMs = 60_000, onlyId?: string): Prom
   const only = onlyId ?? null;
   return db().$queryRaw<OutboxRow[]>`
     UPDATE "OutboxMessage" o
-    SET status = 'SENDING', attempts = o.attempts + 1, "leaseUntil" = now() + (${leaseMs}::int * interval '1 millisecond'),
-        "firstAttemptAt" = COALESCE(o."firstAttemptAt", now()), "lastAttemptAt" = now()
+    SET status = 'SENDING', attempts = o.attempts + 1, "leaseUntil" = clock_timestamp() + (${leaseMs}::int * interval '1 millisecond'),
+        "firstAttemptAt" = COALESCE(o."firstAttemptAt", clock_timestamp()), "lastAttemptAt" = clock_timestamp()
     WHERE o.id IN (
       SELECT id FROM "OutboxMessage"
-      WHERE ((status = 'PENDING' AND "availableAt" <= now()) OR (status = 'SENDING' AND "leaseUntil" < now()))
+      WHERE ((status = 'PENDING' AND "availableAt" <= clock_timestamp()) OR (status = 'SENDING' AND "leaseUntil" < clock_timestamp()))
         AND (${only}::text IS NULL OR id = ${only}::text)
       ORDER BY "availableAt"
       LIMIT ${limit}

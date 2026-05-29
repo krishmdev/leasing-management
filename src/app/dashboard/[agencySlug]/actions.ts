@@ -13,7 +13,7 @@ import { setUnitListed } from "@/server/domain/leases/sign";
 import { markShowing } from "@/server/domain/showings/booking";
 import { assignTicket, commentOnTicket, transitionTicket } from "@/server/domain/maintenance/tickets";
 import { withdrawApplication } from "@/server/domain/decisions/withdraw";
-import type { ReasonCode } from "@/server/domain/screening/rubric";
+import { REASON_OPTIONS, type ReasonCode } from "@/server/domain/screening/rubric";
 import type { TicketStatus } from "@/server/domain/maintenance/stateMachine";
 import type { FormState } from "@/lib/forms";
 
@@ -28,7 +28,10 @@ export async function decideAction(slug: string, applicationId: string, _: FormS
   const level = AutomationConfig.parse(settings.automation).level;
   const app = await ctx.tdb.application.findUniqueOrThrow({ where: { id: applicationId } });
   const rec = app.criteriaVersionId ? await ctx.tdb.recommendation.findFirst({ where: { applicationId, criteriaVersionId: app.criteriaVersionId } }) : null;
-  const reasons = ((rec?.breakdown as { reasonCodes?: ReasonCode[] } | null)?.reasonCodes ?? []) as ReasonCode[];
+  const recReasons = ((rec?.breakdown as { reasonCodes?: ReasonCode[] } | null)?.reasonCodes ?? []) as ReasonCode[];
+  const picked = new Set(fd.getAll("reason").map(String));
+  // Staff pick the reasons the applicant's notice will list; the rubric's ranking is the default.
+  const reasons = REASON_OPTIONS.filter((r) => picked.has(r.code)).map((r) => recReasons.find((x) => x.code === r.code) ?? r);
   try {
     const r = await executeDecision(ctx.agencyId, applicationId, {
       outcome: outcome.data, mode: level === "MANUAL" ? "MANUAL" : "ASSISTED", decidedByType: "USER", decidedById: ctx.userId,
@@ -70,20 +73,21 @@ export async function dismissTaskAction(slug: string, taskId: string) {
 
 export async function toggleListedAction(slug: string, unitId: string, listed: boolean) {
   const ctx = await requireStaff(slug, "listings.write");
-  await setUnitListed(ctx.agencyId, ctx.userId, unitId, listed);
+  await setUnitListed(ctx.agencyId, ctx.userId, z.string().parse(unitId), z.boolean().parse(listed));
   revalidatePath(`${base(slug)}/listings`);
 }
 
 export async function markShowingAction(slug: string, showingId: string, status: "COMPLETED" | "NO_SHOW") {
   const ctx = await requireStaff(slug, "showings.manage");
-  await markShowing(ctx.agencyId, ctx.userId, showingId, status);
+  await markShowing(ctx.agencyId, ctx.userId, z.string().parse(showingId), z.enum(["COMPLETED", "NO_SHOW"]).parse(status));
   revalidatePath(`${base(slug)}/showings`);
 }
 
 export async function ticketStatusAction(slug: string, ticketId: string, to: TicketStatus, _: FormState, fd: FormData): Promise<FormState> {
   const ctx = await requireStaff(slug, "maintenance.work");
   try {
-    await transitionTicket(ctx.agencyId, { type: "USER", id: ctx.userId }, ticketId, to, String(fd.get("note") ?? "") || undefined);
+    const status = z.enum(["NEW", "TRIAGED", "ASSIGNED", "IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED", "CANCELED"]).parse(to);
+    await transitionTicket(ctx.agencyId, { type: "USER", id: ctx.userId }, ticketId, status, String(fd.get("note") ?? "") || undefined);
   } catch (e) {
     return { message: (e as Error).message };
   }

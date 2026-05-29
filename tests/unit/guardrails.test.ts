@@ -17,6 +17,21 @@ describe("redaction", () => {
     expect(r.count).toBe(5);
   });
 
+  it("catches plurals, possessives, demonyms, kinship words and stated ages that aren't spelled that way in the lexicon", () => {
+    const cases = [
+      "Both veterans", "Christians and Muslims", "immigrants", "Section 8 vouchers", "two wheelchairs", "the grandkids", "her boyfriends",
+      "a Jew", "a nigerian family", "she is 72 years old", "a 68-year-old", "in her 60s", "his daughters", "our families'", "my mom's place",
+      "refugees", "sixty-something",
+    ];
+    for (const c of cases) {
+      const r = redact(`Tenant note: ${c}. Paid on time.`);
+      expect(r.count, c).toBeGreaterThan(0);
+      expect(mentionsProtected(`Output mentions ${c}`), c).toBe(true);
+    }
+    // and leaves ordinary rental language alone
+    expect(redact("Paid rent on time, kept the unit clean, gave 30 days notice. Parking spot 2B.").count).toBe(0);
+  });
+
   it("catches multi-word protected phrases", () => {
     expect(redact("She has an emotional support animal and a Section 8 voucher.").text).not.toMatch(/support animal|section 8|voucher/i);
   });

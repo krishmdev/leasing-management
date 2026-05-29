@@ -229,3 +229,30 @@ describe("database backstops", () => {
     expect(pgCode(err)).toBe("23505");
   });
 });
+
+describe("key rotation", () => {
+  it("re-encrypts every field under the new key and keeps rows readable", async () => {
+    const { randomBytes } = await import("node:crypto");
+    const { EnvKeyProvider, setKeyProvider, keys } = await import("@/server/crypto/keyProvider");
+    const { rotateAll } = await import("@/server/crypto/rotate");
+    const { envelopeKeyId } = await import("@/server/crypto/fieldEncryption");
+    const lead = await makeLead(A.id, "rotate@example.com", "Rota Tion");
+    const old = keys();
+    const ring = JSON.parse(process.env.PII_KEYRING!);
+    const next = new EnvKeyProvider({ ...process.env, PII_KEYRING: JSON.stringify({ ...ring, rot2: randomBytes(32).toString("base64") }), PII_ACTIVE_KEY_ID: "rot2" });
+    setKeyProvider(next);
+    try {
+      const dry = await rotateAll({ dryRun: true });
+      expect(dry.rows.Lead).toBeGreaterThan(0);
+      // the rows an earlier test tampered with are reported, not re-encrypted
+      expect(dry.failures.length).toBeGreaterThan(0);
+      await rotateAll({ dryRun: false });
+      const row = await db().lead.findUniqueOrThrow({ where: { id: lead.id } });
+      expect(envelopeKeyId(row.emailEnc)).toBe("rot2");
+      expect(fields({ agencyId: A.id, model: "Lead", id: lead.id }).dec("emailEnc", row.emailEnc)).toBe("rotate@example.com");
+      expect((await rotateAll({ dryRun: true })).rows.Lead).toBe(0);
+    } finally {
+      setKeyProvider(old);
+    }
+  });
+});

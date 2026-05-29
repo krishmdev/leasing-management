@@ -5,8 +5,9 @@ import { uuidv7 } from "@/lib/ids";
 import { tenantDb } from "@/server/tenant";
 import { enqueueEmail } from "@/server/outbox/outbox";
 import { audit, type ActorType } from "@/server/audit/audit";
-import { putObject } from "@/server/storage";
+import { deleteObject, putObject } from "@/server/storage";
 import { triageTicket } from "@/server/ai/provider";
+import { offlineTriage } from "@/server/ai/offline";
 import { redact } from "@/server/ai/guardrails/redact";
 import { ACCOMMODATION_RE, matchSafetyRule } from "./rules";
 import { canTransition, type TicketStatus } from "./stateMachine";
@@ -48,8 +49,13 @@ export async function createTicket(
   const accommodation = ACCOMMODATION_RE.test(text);
   const t = tenantDb(agencyId);
 
-  // Classifier runs on redacted text. It can raise urgency, never lower a rule's EMERGENCY.
-  const ai = await triageTicket({ agencyId }, { title: redact(d.title).text, redactedText: redact(d.description).text, month });
+  // A safety rule decides on its own; nothing waits on a model for a gas leak. Otherwise the
+  // classifier runs on redacted text (names included) and falls back to offline if it fails.
+  const reporter = who.reporterUserId ? await t.user.findUnique({ where: { id: who.reporterUserId } }) : null;
+  const knownNames = reporter ? [reporter.name] : [];
+  const ai = rule
+    ? { ...offlineTriage({ title: redact(d.title, { knownNames }).text, redactedText: redact(d.description, { knownNames }).text, month }), source: "OFFLINE" as const }
+    : await triageTicket({ agencyId }, { title: redact(d.title, { knownNames }).text, redactedText: redact(d.description, { knownNames }).text, month });
   const urgency: Urgency = rule ? "EMERGENCY" : ai.urgency;
   const category = rule && rule.category !== "OTHER" ? rule.category : ai.category;
   const policy = await t.slaPolicy.findFirst({ where: { urgency } });
@@ -57,7 +63,17 @@ export async function createTicket(
   const resolveMins = policy?.resolveMins ?? 7 * 24 * 60;
   const id = uuidv7();
 
-  return t.$transaction(async (tx) => {
+  // Photos are written to disk first under fresh keys; if the transaction fails they're removed,
+  // so a rollback can't leave orphaned files or rows pointing at missing ones.
+  const stored: { key: string; p: (typeof processed)[number] }[] = [];
+  for (const p of processed) {
+    const key = `agencies/${agencyId}/tickets/${id}/${uuidv7()}`;
+    await putObject(`${key}.webp`, p.full);
+    await putObject(`${key}.thumb.webp`, p.thumb);
+    stored.push({ key, p });
+  }
+  try {
+    return await t.$transaction(async (tx) => {
     const status: TicketStatus = accommodation ? "NEW" : "TRIAGED";
     await tx.maintenanceTicket.create({
       data: {
@@ -74,10 +90,7 @@ export async function createTicket(
         ...(status === "TRIAGED" ? [{ agencyId, ticketId: id, from: "NEW" as const, to: "TRIAGED" as const, actorType: "AGENT", note: rule ? `safety rule: ${rule.id}` : `classified ${ai.source.toLowerCase()}`, at: now }] : []),
       ],
     });
-    for (const p of processed) {
-      const key = `agencies/${agencyId}/tickets/${id}/${uuidv7()}`;
-      await putObject(`${key}.webp`, p.full);
-      await putObject(`${key}.thumb.webp`, p.thumb);
+    for (const { key, p } of stored) {
       await tx.ticketPhoto.create({ data: { agencyId, ticketId: id, storageKey: `${key}.webp`, thumbKey: `${key}.thumb.webp`, bytes: p.full.length, width: p.width, height: p.height } });
     }
     if (who.reporterUserId) await enqueueEmail(tx, agencyId, `mail:ticket:${id}:created`, { template: "ticket.created", to: { kind: "user", id: who.reporterUserId }, params: { ticketId: id } });
@@ -86,7 +99,11 @@ export async function createTicket(
     }
     await audit({ agencyId, actorType: "RESIDENT", actorId: who.reporterUserId, action: "ticket.created", entity: "MaintenanceTicket", entityId: id, metadata: { urgency, category, rule: rule?.id ?? null, accommodation } }, tx);
     return { id, urgency, category, instructions: rule?.instructions ?? null, accommodation };
-  });
+    });
+  } catch (e) {
+    await Promise.all(stored.flatMap(({ key }) => [deleteObject(`${key}.webp`), deleteObject(`${key}.thumb.webp`)]));
+    throw e;
+  }
 }
 
 export class TransitionError extends Error {}

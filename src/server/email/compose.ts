@@ -308,7 +308,7 @@ const COMPOSERS: Record<string, Composer> = {
     if (!app) return null;
     return render(to, "About your rental application", {
       brand: brand(ctx),
-      heading: "We couldn't approve your application",
+      heading: params.kind === "CONDITIONAL" ? "About the conditions on your approval" : "We couldn't approve your application",
       paragraphs: [
         "A written notice with the main reasons, the screening company's contact details, and your rights to a free copy of your report and to dispute it is available on your application page.",
         "If you think something in the report is wrong, contact the screening company directly; they, not we, can correct it.",

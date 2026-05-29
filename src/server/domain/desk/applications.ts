@@ -56,12 +56,15 @@ export async function applicationDetail(ctx: StaffCtx, id: string) {
   return { app, history, llm, displayName: maskName(decryptApplication(app).legalName) };
 }
 
-/** Full PII, only on request, only with a stated purpose, and always audited. */
+export const REVEAL_PURPOSES = ["CONTACT_APPLICANT", "VERIFY_IDENTITY", "PREPARE_LEASE", "RESPOND_TO_DISPUTE", "LEGAL_REQUEST"] as const;
+export type RevealPurpose = (typeof REVEAL_PURPOSES)[number];
+
+/** Full PII, only on request, only for a listed purpose, and always audited (the category, never free text). */
 export async function revealApplicantPII(ctx: StaffCtx, id: string, purpose: string) {
   assertCan(ctx.role, "pii.reveal");
-  if (purpose.trim().length < 4) throw new Error("Say why you need this");
+  if (!REVEAL_PURPOSES.includes(purpose as RevealPurpose)) throw new Error("Choose why you need this");
   const app = await ctx.tdb.application.findUniqueOrThrow({ where: { id }, include: { lead: true, residences: true } });
-  await audit({ agencyId: ctx.agencyId, actorType: "USER", actorId: ctx.userId, action: "application.pii.revealed", entity: "Application", entityId: id, metadata: { purposeLength: purpose.length, purposeCategory: purpose.slice(0, 40).replace(/[^\w\s-]/g, "") } }, ctx.tdb);
+  await audit({ agencyId: ctx.agencyId, actorType: "USER", actorId: ctx.userId, action: "application.pii.revealed", entity: "Application", entityId: id, metadata: { purpose } }, ctx.tdb);
   return {
     ...decryptApplication(app),
     ...(() => {

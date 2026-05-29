@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 
 /** Local-disk object store rooted at STORAGE_DIR (./storage by default, gitignored). */
@@ -16,6 +16,10 @@ export async function putObject(key: string, data: Buffer) {
   const tmp = `${p}.${process.pid}.tmp`;
   await writeFile(tmp, data);
   await rename(tmp, p);
+}
+
+export async function deleteObject(key: string) {
+  await rm(pathFor(key), { force: true });
 }
 
 export async function getObject(key: string) {

@@ -12,6 +12,18 @@ export const CriteriaConfig = z.object({
   references: z.object({ structuredShare: z.number(), textShare: z.number(), noneReceived: z.number() }),
   thresholds: z.object({ approve: z.number(), conditional: z.number() }),
   jurisdictions: z.array(z.string()),
+}).superRefine((c, ctx) => {
+  // These are what make the stated bounds true for any criteria version, not just the default:
+  // no factor can exceed its weight, and the model's share of the reference score stays <= 30%
+  // (so at most 0.3 x 15 = 4.5 points).
+  const bands = c.incomeBands;
+  if (bands.some((b) => b.points > c.weights.income)) ctx.addIssue({ code: "custom", message: "income band points exceed the income weight" });
+  if (bands.some((b, i) => i > 0 && b.minRatio >= bands[i - 1].minRatio)) ctx.addIssue({ code: "custom", message: "income bands must be in descending minRatio order" });
+  if (Object.values(c.creditPoints).some((p) => p > c.weights.credit)) ctx.addIssue({ code: "custom", message: "credit points exceed the credit weight" });
+  if (Math.max(c.collections.none, c.collections.small, c.collections.large) > c.weights.collections) ctx.addIssue({ code: "custom", message: "collections points exceed the weight" });
+  if (c.references.noneReceived > c.weights.references) ctx.addIssue({ code: "custom", message: "references default exceeds the weight" });
+  if (Math.abs(c.references.structuredShare + c.references.textShare - 1) > 1e-9) ctx.addIssue({ code: "custom", message: "reference shares must sum to 1" });
+  if (c.references.textShare > 0.3) ctx.addIssue({ code: "custom", message: "the model's text share is capped at 0.3" });
 });
 export type CriteriaConfig = z.infer<typeof CriteriaConfig>;
 

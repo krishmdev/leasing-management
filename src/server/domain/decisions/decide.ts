@@ -68,22 +68,26 @@ export async function executeDecision(agencyId: string, applicationId: string, d
     t.$transaction(async (tx) => {
       const settings = await lockSettings(tx, agencyId);
       const cfg = AutomationConfig.parse(settings.automation);
+      const unit = await lockUnit(tx, agencyId, pre.unitId);
+      const app = await lockApplication(tx, agencyId, applicationId);
+      if (!unit || !app) return { status: "noop", reason: "missing" } as const;
+      if (app.status !== "DECISION_PENDING") return { status: "noop", reason: `status is ${app.status}` } as const;
       if (d.mode === "AUTONOMOUS" && (settings.automationPaused || cfg.level !== "AUTONOMOUS")) {
         const reason = settings.automationPaused ? "AUTOMATION_PAUSED" : "AUTOMATION_LEVEL_CHANGED";
         await escalate(tx, agencyId, applicationId, [reason], { draft: d.outcome });
         return { status: "escalated", reason } as const;
       }
-      const unit = await lockUnit(tx, agencyId, pre.unitId);
-      const app = await lockApplication(tx, agencyId, applicationId);
-      if (!unit || !app) return { status: "noop", reason: "missing" } as const;
-      if (app.status !== "DECISION_PENDING") return { status: "noop", reason: `status is ${app.status}` } as const;
+      if (d.outcome !== "APPROVE" && d.reasonCodes.length === 0) {
+        throw new Error("choose at least one reason for a decline or a conditional approval; the applicant's notice lists them");
+      }
 
       if (d.mode === "AUTONOMOUS") {
         const day = localDay(settings.timezone);
         const raw = tenantRaw(agencyId, tx as unknown as Raw);
         await raw.execute`INSERT INTO "AutomationQuota" ("agencyId", day, used, cap) VALUES (${agencyId}, ${day}::date, 0, ${cfg.dailyCap}) ON CONFLICT DO NOTHING`;
         const took = await raw.query<{ used: number }[]>`
-          UPDATE "AutomationQuota" SET used = used + 1 WHERE "agencyId" = ${agencyId} AND day = ${day}::date AND used < cap RETURNING used`;
+          UPDATE "AutomationQuota" SET used = used + 1, cap = GREATEST(${cfg.dailyCap}, used + 1)
+          WHERE "agencyId" = ${agencyId} AND day = ${day}::date AND used < ${cfg.dailyCap} RETURNING used`;
         if (took.length === 0) {
           await escalate(tx, agencyId, applicationId, ["DAILY_CAP_REACHED"], { draft: d.outcome });
           return { status: "escalated", reason: "DAILY_CAP_REACHED" } as const;
@@ -106,8 +110,11 @@ export async function executeDecision(agencyId: string, applicationId: string, d
 
       let hold: string | undefined;
       if (d.outcome === "DECLINE") {
-        await adverseAction(tx, agencyId, applicationId, d.reasonCodes);
+        await adverseAction(tx, agencyId, applicationId, d.reasonCodes, "DECLINE");
       } else {
+        // Approval on less favorable terms (a guarantor) because of the report is an adverse
+        // action under FCRA too, so a conditional approval gets a notice as well.
+        if (d.outcome === "CONDITIONAL") await adverseAction(tx, agencyId, applicationId, d.reasonCodes, "CONDITIONAL");
         const h = await placeHold(tx, agencyId, unit, applicationId, settings.holdHours);
         hold = h.status;
         await enqueueEmail(tx, agencyId, `mail:app:${applicationId}:decision:${d.outcome}`, {
@@ -129,12 +136,14 @@ export async function executeDecision(agencyId: string, applicationId: string, d
   );
 }
 
-async function adverseAction(tx: TenantTx, agencyId: string, applicationId: string, reasons: ReasonCode[]) {
+async function adverseAction(tx: TenantTx, agencyId: string, applicationId: string, reasons: ReasonCode[], kind: "DECLINE" | "CONDITIONAL") {
   const sr = await tx.screeningRequest.findFirst({ where: { applicationId }, include: { result: true } });
   const r = sr?.result;
   const score = r?.creditScoreEnc ? Number(decryptField({ agencyId, model: "ScreeningResult", id: r.id, field: "creditScoreEnc" }, r.creditScoreEnc)) : null;
-  const usedCra = reasons.some((x) => x.basis === "CRA");
+  // A report was obtained and considered, so the CRA disclosure goes in whenever one exists.
+  const usedCra = !!r || reasons.some((x) => x.basis === "CRA");
   const craSnapshot = {
+    kind,
     cra: screeningProvider(sr?.provider).craDisclosure(),
     usedCra,
     score: usedCra && score ? { value: score, model: r!.scoreModel, range: [r!.scoreRangeMin, r!.scoreRangeMax], keyFactors: r!.keyFactors.slice(0, 4), date: r!.scoreDate } : null,
@@ -145,5 +154,5 @@ async function adverseAction(tx: TenantTx, agencyId: string, applicationId: stri
   });
   await enqueueDocument(tx, agencyId, `doc:${applicationId}:ADVERSE_ACTION:adverseAction.v1`, { kind: "ADVERSE_ACTION", templateVersion: "adverseAction.v1", applicationId });
   const app = await tx.application.findUniqueOrThrow({ where: { id: applicationId } });
-  await enqueueEmail(tx, agencyId, `mail:app:${applicationId}:adverse-action`, { template: "application.adverse_action", to: { kind: "lead", id: app.leadId }, params: { applicationId } });
+  await enqueueEmail(tx, agencyId, `mail:app:${applicationId}:adverse-action`, { template: "application.adverse_action", to: { kind: "lead", id: app.leadId }, params: { applicationId, kind } });
 }

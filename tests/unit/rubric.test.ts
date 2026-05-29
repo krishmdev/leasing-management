@@ -140,3 +140,13 @@ describe("fairness invariance", () => {
     expect(keys).toEqual(["altEvidenceProvided", "hasRentSubsidy", "llmGuardTripped", "monthlyIncomeCents", "references", "rentCents", "screening", "subsidyMonthlyCents"]);
   });
 });
+
+describe("criteria validation", () => {
+  it("rejects versions that would break the stated bounds", async () => {
+    const { CriteriaConfig } = await import("@/server/domain/screening/criteria");
+    expect(CriteriaConfig.safeParse(C).success).toBe(true);
+    expect(CriteriaConfig.safeParse({ ...C, references: { ...C.references, structuredShare: 0.5, textShare: 0.5 } }).success).toBe(false);
+    expect(CriteriaConfig.safeParse({ ...C, incomeBands: [{ minRatio: 2, points: 18 }, { minRatio: 3, points: 35 }] }).success).toBe(false);
+    expect(CriteriaConfig.safeParse({ ...C, creditPoints: { ...C.creditPoints, EXCELLENT: 40 } }).success).toBe(false);
+  });
+});

@@ -58,12 +58,12 @@ export async function renderDocument(row: OutboxRow & { payload: DocumentPayload
     );
   } else {
     const n = await t.adverseActionNotice.findUniqueOrThrow({ where: { applicationId: app.id } });
-    const snap = n.craSnapshot as unknown as { cra: { name: string; address: string; phone: string; website: string }; usedCra: boolean; score: { value: number; model: string | null; range: (number | null)[]; keyFactors: string[]; date: string | null } | null };
+    const snap = n.craSnapshot as unknown as { kind?: "DECLINE" | "CONDITIONAL"; cra: { name: string; address: string; phone: string; website: string }; usedCra: boolean; score: { value: number; model: string | null; range: (number | null)[]; keyFactors: string[]; date: string | null } | null };
     const reasons = n.reasonCodes as unknown as { text: string; basis: string }[];
     el = (
       <AdverseActionDoc
         d={{
-          meta: meta("Notice of adverse action", n.createdAt), applicant, address, reasons,
+          meta: meta("Notice of adverse action", n.createdAt), kind: snap.kind ?? "DECLINE", applicant, address, reasons,
           cra: snap.usedCra ? snap.cra : null, score: snap.score ? { ...snap.score, date: snap.score.date ? String(snap.score.date).slice(0, 10) : null } : null,
           thirdParty: reasons.some((r) => r.basis === "THIRD_PARTY"),
         }}

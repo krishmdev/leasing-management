@@ -18,12 +18,16 @@ export function DecisionPanel({
   status,
   recommended,
   decided,
+  reasons,
+  suggested,
 }: {
   slug: string;
   applicationId: string;
   status: string;
   recommended: string | null;
   decided: { outcome: string; by: string; mode: string; overrode: boolean; reason: string | null; at: string } | null;
+  reasons: { code: string; text: string; basis: string }[];
+  suggested: string[];
 }) {
   const initial = recommended && recommended !== "NEEDS_REVIEW" ? recommended : "";
   const [choice, setChoice] = useState(initial);
@@ -67,6 +71,19 @@ export function DecisionPanel({
                   </label>
                 ))}
               </fieldset>
+              {(choice === "DECLINE" || choice === "CONDITIONAL") && (
+                <fieldset className="rounded-md border border-line p-2.5">
+                  <legend className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted">Reasons for the applicant&apos;s notice</legend>
+                  <div className="space-y-1">
+                    {reasons.map((r) => (
+                      <label key={r.code} className="flex gap-2 text-[13px]">
+                        <input type="checkbox" name="reason" value={r.code} defaultChecked={suggested.includes(r.code)} className="mt-0.5" />
+                        <span>{r.text} <span className="text-2xs text-muted">({r.basis.toLowerCase().replace("_", " ")})</span></span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
               {(overriding || recommended === "NEEDS_REVIEW") && (
                 <Field label={overriding ? "Why are you overriding the recommendation?" : "Review note"} htmlFor="overrideReason" hint="Stored with the decision and shown in the audit log.">
                   <Textarea id="overrideReason" name="overrideReason" required={overriding} className="min-h-16" />
