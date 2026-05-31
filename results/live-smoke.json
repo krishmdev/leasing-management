@@ -1,0 +1,160 @@
+{
+  "recordedAt": "2026-06-01T04:48:32.432Z",
+  "provider": {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite"
+  },
+  "references": [
+    {
+      "redactions": 0,
+      "latencyMs": 1047,
+      "cached": false,
+      "fallback": false,
+      "guardTripped": false,
+      "live": {
+        "paymentReliability": 5,
+        "propertyCare": 5,
+        "leaseCompliance": 5,
+        "redFlags": []
+      },
+      "offline": {
+        "paymentReliability": 5,
+        "propertyCare": 4,
+        "leaseCompliance": 3,
+        "redFlags": []
+      },
+      "rubricScoreLive": 100,
+      "rubricScoreOffline": 99,
+      "llmPointsLive": 4.5
+    },
+    {
+      "redactions": 0,
+      "latencyMs": 753,
+      "cached": false,
+      "fallback": false,
+      "guardTripped": false,
+      "live": {
+        "paymentReliability": 2,
+        "propertyCare": 5,
+        "leaseCompliance": 2,
+        "redFlags": [
+          "LATE_PAYMENTS",
+          "NOISE_COMPLAINTS"
+        ]
+      },
+      "offline": {
+        "paymentReliability": 2,
+        "propertyCare": 3,
+        "leaseCompliance": 1,
+        "redFlags": [
+          "LATE_PAYMENTS",
+          "NOISE_COMPLAINTS"
+        ]
+      },
+      "rubricScoreLive": 98,
+      "rubricScoreOffline": 97,
+      "llmPointsLive": 2.3
+    },
+    {
+      "redactions": 2,
+      "latencyMs": 943,
+      "cached": false,
+      "fallback": false,
+      "guardTripped": false,
+      "live": {
+        "paymentReliability": 5,
+        "propertyCare": 5,
+        "leaseCompliance": 5,
+        "redFlags": []
+      },
+      "offline": {
+        "paymentReliability": 5,
+        "propertyCare": 4,
+        "leaseCompliance": 4,
+        "redFlags": []
+      },
+      "rubricScoreLive": 100,
+      "rubricScoreOffline": 99,
+      "llmPointsLive": 4.5
+    }
+  ],
+  "rationale": {
+    "source": "LLM",
+    "guardTripped": false,
+    "mentionsProtected": false,
+    "chars": 311,
+    "text": "The applicant received a score of 71, resulting in a conditional approval based on the evaluation rubric. This status was determined by the income factor, which is 2.60x, and the credit factor, which falls in the fair band. To finalize the process, a qualified guarantor is required as a condition of the lease."
+  },
+  "triage": [
+    {
+      "title": "Kitchen sink",
+      "live": {
+        "category": "PLUMBING",
+        "urgency": "NORMAL",
+        "confidence": 0.95,
+        "source": "LLM"
+      },
+      "offline": {
+        "category": "PLUMBING",
+        "urgency": "LOW",
+        "confidence": 0.7
+      }
+    },
+    {
+      "title": "Outlet",
+      "live": {
+        "category": "ELECTRICAL",
+        "urgency": "NORMAL",
+        "confidence": 0.95,
+        "source": "LLM"
+      },
+      "offline": {
+        "category": "ELECTRICAL",
+        "urgency": "NORMAL",
+        "confidence": 0.7
+      }
+    },
+    {
+      "title": "Fridge",
+      "live": {
+        "category": "APPLIANCE",
+        "urgency": "HIGH",
+        "confidence": 0.95,
+        "source": "LLM"
+      },
+      "offline": {
+        "category": "APPLIANCE",
+        "urgency": "NORMAL",
+        "confidence": 0.7
+      }
+    }
+  ],
+  "manifest": {
+    "recorded_at": "2026-06-01T00:48:31-0400",
+    "host": {
+      "chip": "Apple M1 Pro",
+      "ram_gb": 16,
+      "os": "Darwin 26.5.1",
+      "python": "3.14.6",
+      "power": "Now drawing from 'AC Power'"
+    },
+    "exclusive_compute": {
+      "held": true,
+      "holder": "localhost-ai-bench"
+    },
+    "load": {
+      "loadavg": [
+        "20.23",
+        "15.90",
+        "10.48"
+      ],
+      "cpu_usage": "CPU usage: 57.91% user, 34.16% sys, 7.91% idle",
+      "docker_containers_running": 8,
+      "swap": "total = 12288.00M  used = 11840.12M  free = 447.88M  (encrypted)"
+    },
+    "extra": {
+      "model": "gemini-3.5-flash-lite",
+      "task": "live-smoke"
+    }
+  }
+}
