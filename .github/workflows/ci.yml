@@ -53,3 +53,20 @@ jobs:
       - name: keys
         run: pnpm exec tsx scripts/gen-keys.ts >> "$GITHUB_ENV"
       - run: pnpm test:int
+
+  e2e-offline:
+    # Setup (network allowed): build the app image. Runtime: run it on the compose network that
+    # has no egress; the egress canary in the web server and the worker must see every external
+    # connection fail, and the whole Playwright suite runs there.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --wait
+      - run: docker build -f Dockerfile.e2e -t leasing-e2e .
+      - name: e2e with no egress
+        run: >-
+          docker run --rm --network leasing_backend
+          -e E2E_OFFLINE=1
+          -e E2E_DATABASE_URL=postgresql://leasing:leasing@postgres:5432/leasing_e2e
+          -e SMTP_HOST=mailpit -e SMTP_PORT=1025 -e MAILPIT_URL=http://mailpit:8025
+          leasing-e2e

@@ -14,6 +14,7 @@ export function freshSecrets(): Record<string, string> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  // Unquoted so the output works both as a dotenv file and as $GITHUB_ENV lines.
-  for (const [k, v] of Object.entries(freshSecrets())) console.log(`${k}=${v}`);
+  // Unquoted by default (for $GITHUB_ENV); --shell single-quotes values so `. ./.env` works.
+  const q = process.argv.includes("--shell") ? "'" : "";
+  for (const [k, v] of Object.entries(freshSecrets())) console.log(`${k}=${q}${v}${q}`);
 }

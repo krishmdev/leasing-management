@@ -29,7 +29,8 @@ trap 'kill $WEB $WORKER 2>/dev/null || true' EXIT INT TERM
 
 i=0
 # Wait for the web server, and for both processes to have recorded their egress canary.
-until curl -sf "$APP_URL/api/health" 2>/dev/null | grep -q '"worker"' ; do
+health() { node -e 'fetch(process.argv[1]).then(r=>r.text()).then(t=>{process.exit(t.includes("\"worker\"")?0:1)}).catch(()=>process.exit(1))' "$APP_URL/api/health"; }
+until health; do
   i=$((i + 1)); [ $i -gt 60 ] && { echo "web server didn't come up"; tail -30 storage/e2e-web.log; exit 1; }
   sleep 1
 done

@@ -1,0 +1,13 @@
+# Image for the Linux offline e2e (CI). Built with network access; run attached only to the
+# compose `backend` network, which is `internal: true`, so the app, worker and browser inside
+# have no route to the internet while still reaching Postgres and Mailpit.
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@10.28.0 --activate
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN pnpm install --frozen-lockfile
+COPY . .
+RUN pnpm exec prisma generate && pnpm build
+CMD ["sh", "-c", "pnpm exec tsx scripts/gen-keys.ts --shell > .env && ./scripts/e2e.sh"]
