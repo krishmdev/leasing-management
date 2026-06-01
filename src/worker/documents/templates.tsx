@@ -216,15 +216,12 @@ export function AdverseActionDoc({ d }: { d: AdverseData }) {
           )}
 
           <View style={{ marginTop: 8 }}>
-            <Text style={s.h2}>Statutory dispute & consumer rights</Text>
+            <Text style={s.h2}>Your rights</Text>
             <Text style={s.p}>
               • FCRA § 612 (Free consumer report): You have the right to obtain a free copy of your consumer report from the consumer reporting agency identified above, provided your request is made within 60 days after receiving this notice.
             </Text>
             <Text style={s.p}>
               • FCRA § 611 (Dispute accuracy and completeness): You have the right to dispute the accuracy or completeness of any information in the consumer report directly with the consumer reporting agency. The agency must investigate your dispute free of charge.
-            </Text>
-            <Text style={s.p}>
-              • FCRA § 605A (Right to obtain a security freeze): You have the right to place a security freeze on your consumer credit report at no cost. A security freeze prohibits a consumer reporting agency from releasing information in your credit report without your express authorization, helping protect against identity theft.
             </Text>
             <Text style={s.p}>
               • California CCRAA disclosure (Cal. Civ. Code § 1785.20): Under the California Consumer Credit Reporting Agencies Act, whenever an adverse action is taken based in whole or in part on a credit report, you have the right to receive written notice of the action and the agency&apos;s contact details. You have the right to obtain a free copy of your report within 60 days and dispute incomplete or inaccurate information.
