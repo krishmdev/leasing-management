@@ -91,7 +91,7 @@ test("assisted agency: apply, reference, screening, staff approval, lease signed
   await page.goto(linkIn(leaseMail.Text, /https?:\/\/\S+\/lease\/[A-Za-z0-9_-]+/));
   await poll(async () => {
     await page.reload();
-    return (await page.locator("iframe[title='Lease document']").count()) > 0;
+    return (await page.getByRole("link", { name: "Open lease PDF" }).count()) > 0;
   }, 60_000, 1500);
   await page.fill("#typedName", "Jamie Ortiz");
   await page.locator("#consent").check();
@@ -100,7 +100,7 @@ test("assisted agency: apply, reference, screening, staff approval, lease signed
   await waitForMail(email, /Lease signed/);
 
   // The reviewed lease PDF downloads with the signing link, and the signed copy shows up on the status page.
-  const src = await page.locator("iframe[title='Lease document']").getAttribute("src");
+  const src = await page.getByRole("link", { name: "Open lease PDF" }).getAttribute("href");
   const pdf = await page.request.get(src!);
   expect(pdf.headers()["content-type"]).toBe("application/pdf");
   expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");

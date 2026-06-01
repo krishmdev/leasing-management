@@ -14,11 +14,13 @@ export default async function LeasePage({ params }: { params: Promise<{ agencySl
   const [agency, lease] = await Promise.all([publicAgency(agencySlug), leaseByToken(token)]);
   if (!agency || !lease || lease.agencyId !== agency.id) notFound();
   const t = tenantDb(agency.id);
-  const [unit, doc, sig] = await Promise.all([
+  const [unit, doc, sig, signedDoc] = await Promise.all([
     t.unit.findUniqueOrThrow({ where: { id: lease.unitId }, include: { property: true } }),
     t.generatedDocument.findFirst({ where: { applicationId: lease.applicationId, kind: "LEASE", templateVersion: LEASE_TEMPLATE } }),
     t.signature.findFirst({ where: { leaseId: lease.id } }),
+    t.generatedDocument.findFirst({ where: { leaseId: lease.id, kind: "SIGNED_LEASE", purgedAt: null } }),
   ]);
+  const pdfHref = doc ? `/api/documents/${doc.id}?t=${encodeURIComponent(token)}` : null;
   const expired = !sig && lease.signTokenExpiresAt.getTime() < (await requestTime());
   return (
     <div className="mx-auto max-w-5xl px-5 pt-10">
@@ -31,8 +33,17 @@ export default async function LeasePage({ params }: { params: Promise<{ agencySl
       </dl>
       <div className="mt-6 grid gap-6 grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
-          {doc ? (
-            <iframe title="Lease document" src={`/api/documents/${doc.id}?t=${encodeURIComponent(token)}`} className="h-[70vh] w-full" />
+          {pdfHref ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 p-4">
+                <p className="text-sm text-ink-2">Read the full lease before you sign.</p>
+                <div className="flex gap-2">
+                  <a href={pdfHref} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-full bg-ink px-4 text-sm font-medium text-white">Open lease PDF</a>
+                  <a href={pdfHref} download className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-medium ring-1 ring-black/15">Download</a>
+                </div>
+              </div>
+              <iframe title="Lease document" src={pdfHref} className="hidden h-[70vh] w-full md:block" />
+            </>
           ) : (
             <p className="p-8 text-ink-2" role="status">Your lease document is being prepared. Refresh this page in a minute.</p>
           )}
@@ -45,6 +56,9 @@ export default async function LeasePage({ params }: { params: Promise<{ agencySl
               token={token}
               docSha256={doc?.sha256 ?? null}
               signed={sig ? (sig.responseJson as { signatureId: string; signedAt: string }) : null}
+              statusHref={`/${agencySlug}/apply/${lease.applicationId}/status`}
+              signedCopyHref={signedDoc ? `/api/documents/${signedDoc.id}?t=${encodeURIComponent(token)}` : null}
+              tz={agency.timezone}
               deadline={`${dateLabel(lease.signTokenExpiresAt, agency.timezone, { month: "long", day: "numeric" })} at ${timeLabel(lease.signTokenExpiresAt, agency.timezone)}`}
             />
           )}
