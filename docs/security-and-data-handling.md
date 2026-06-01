@@ -59,7 +59,7 @@ periods with counsel; the FTC Disposal Rule is 16 CFR 682.
   - encrypted name, phone, income and residence fields;
   - reference free text and model analysis;
   - redacted prompt copies;
-  - the lead's contact fields.
+  - the lead's contact fields, when they have no other application or residency.
 - **What stays.** The decision, reason codes and notice.
 - **Better Auth rows.** An applicant's user, session, account and verification rows are deleted
   only if the same user has no staff membership, other application or residency at any agency.
