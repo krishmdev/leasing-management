@@ -4,7 +4,10 @@ import { getSession } from "@/server/session";
 import { tenantDb } from "@/server/tenant";
 import { dateLabel } from "@/lib/format";
 import { ResidentReply } from "./ResidentReply";
-import { TicketStatusStepper } from "./TicketStatusStepper";
+import { TicketStatusStepper, STATUS_LABEL } from "./TicketStatusStepper";
+import Link from "next/link";
+import { DoorOpen, Wrench } from "lucide-react";
+import { signOut } from "@/app/(auth)/login/actions";
 
 export const metadata = { title: "Repair request" };
 
@@ -37,7 +40,11 @@ export default async function TicketPage({ params }: { params: Promise<{ agencyS
   const when = (d: Date) => dateLabel(d, agency.timezone, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
   return (
-    <div className="mx-auto max-w-2xl px-5 pt-12">
+    <div className="mx-auto max-w-2xl px-5 pt-10">
+      <div className="mb-4 flex items-center justify-between text-sm">
+        <Link href={`/${agencySlug}/portal`} className="inline-flex min-h-8 items-center text-ink-2 underline-offset-4 hover:underline">← All requests</Link>
+        <form action={signOut}><button className="min-h-8 text-ink-2 underline-offset-4 hover:underline">Sign out</button></form>
+      </div>
       <p className="text-sm text-muted">Filed {when(t.createdAt)} · {t.urgency.toLowerCase()}</p>
       <h1 className="display mt-1 text-3xl font-semibold">{t.title}</h1>
 
@@ -45,12 +52,12 @@ export default async function TicketPage({ params }: { params: Promise<{ agencyS
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <span className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-ink-2">
-          <span>🚪</span>
-          <span>{t.permissionToEnter ? "Permission to enter granted" : "Staff will coordinate entry (permission not granted)"}</span>
+          <DoorOpen aria-hidden className="size-3.5" />
+          <span>{t.permissionToEnter ? "Permission to enter: yes" : "Permission to enter: no, we'll schedule with you"}</span>
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-ink-2">
-          <span>🔧</span>
-          <span>{technicianName ? `Assigned to ${technicianName}` : "Technician: Pending assignment"}</span>
+          <Wrench aria-hidden className="size-3.5" />
+          <span>{technicianName ? `Assigned to ${technicianName}` : "Not assigned yet"}</span>
         </span>
       </div>
 
@@ -84,7 +91,7 @@ export default async function TicketPage({ params }: { params: Promise<{ agencyS
       <ol className="mt-3 space-y-3">
         {t.events.map((e) => (
           <li key={e.id} className="text-sm">
-            <span className="text-muted">{when(e.at)}</span> · {e.to.toLowerCase().replace("_", " ")}
+            <span className="text-muted">{when(e.at)}</span> · {STATUS_LABEL[e.to] ?? e.to.toLowerCase()}
           </li>
         ))}
         {t.comments.map((c) => (

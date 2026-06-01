@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Checkbox, Field, Input, Textarea, buttonClass } from "@/components/ui";
@@ -132,7 +133,7 @@ export function NewTicketForm({ slug }: { slug: string }) {
                   aria-label={`Remove ${p.file.name}`}
                   className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-surface text-ink-2 shadow-xs ring-1 ring-black/10 hover:bg-neutral-100 hover:text-bad"
                 >
-                  ✕
+                  <X aria-hidden className="size-3.5" />
                 </button>
               </div>
             ))}

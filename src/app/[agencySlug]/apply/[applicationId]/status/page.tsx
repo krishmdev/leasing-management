@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { Check, Circle } from "lucide-react";
 import { publicAgency } from "@/server/domain/agency";
 import { getSession } from "@/server/session";
 import { tenantDb } from "@/server/tenant";
@@ -51,7 +52,7 @@ export default async function Status({ params }: { params: Promise<{ agencySlug:
         {steps.map((s) => (
           <li key={s.title} className="flex gap-4">
             <span aria-hidden className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-sm font-semibold ${s.state === "done" ? "bg-brand text-brand-ink" : s.state === "current" ? "ring-2 ring-brand text-brand" : "bg-black/10 text-muted"}`}>
-              {s.state === "done" ? "✓" : "•"}
+              {s.state === "done" ? <Check aria-hidden className="size-4" /> : <Circle aria-hidden className="size-2 fill-current" />}
             </span>
             <div>
               <p className="font-semibold">{s.title} <span className="sr-only">({s.state})</span></p>

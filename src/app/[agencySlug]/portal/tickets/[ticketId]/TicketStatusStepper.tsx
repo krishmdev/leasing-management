@@ -1,172 +1,61 @@
+import { Check, Pause } from "lucide-react";
 import type { TicketStatus } from "@/server/domain/maintenance/stateMachine";
 
-interface Step {
-  key: string;
-  label: string;
-  desc: string;
-}
+const STEPS = [
+  { label: "Received", desc: "Request submitted" },
+  { label: "Triaged", desc: "Reviewed" },
+  { label: "Assigned", desc: "Technician assigned" },
+  { label: "In progress", desc: "Work underway" },
+  { label: "Resolved", desc: "Repair done" },
+] as const;
 
-const STEPS: Step[] = [
-  { key: "NEW", label: "Received", desc: "Request submitted" },
-  { key: "TRIAGED", label: "Triaged", desc: "Reviewed & categorized" },
-  { key: "ASSIGNED", label: "Assigned", desc: "Technician dispatched" },
-  { key: "IN_PROGRESS", label: "In Progress", desc: "Work underway" },
-  { key: "RESOLVED", label: "Resolved", desc: "Repairs completed" },
-];
+const INDEX: Record<string, number> = { NEW: 0, TRIAGED: 1, ASSIGNED: 2, IN_PROGRESS: 3, ON_HOLD: 3, RESOLVED: 4, CLOSED: 4 };
+export const STATUS_LABEL: Record<string, string> = {
+  NEW: "Received", TRIAGED: "Reviewed", ASSIGNED: "Assigned", IN_PROGRESS: "In progress", ON_HOLD: "On hold", RESOLVED: "Resolved", CLOSED: "Closed", CANCELED: "Canceled",
+};
 
-export function TicketStatusStepper({
-  status,
-  technicianName,
-}: {
-  status: TicketStatus | string;
-  technicianName?: string | null;
-}) {
-  const normStatus = status.toUpperCase();
-
-  // Determine stage progression
-  let activeIndex = 0;
-  if (normStatus === "NEW") {
-    activeIndex = 0;
-  } else if (normStatus === "TRIAGED") {
-    activeIndex = 1;
-  } else if (normStatus === "ASSIGNED") {
-    activeIndex = 2;
-  } else if (normStatus === "IN_PROGRESS" || normStatus === "ON_HOLD") {
-    activeIndex = 3;
-  } else if (normStatus === "RESOLVED" || normStatus === "CLOSED") {
-    activeIndex = 4;
+export function TicketStatusStepper({ status, technicianName }: { status: TicketStatus | string; technicianName?: string | null }) {
+  const s = status.toUpperCase();
+  if (s === "CANCELED") {
+    return (
+      <div data-testid="ticket-status" className="mt-4 rounded-2xl border border-line bg-surface p-4 text-sm text-ink-2">
+        This request was canceled.
+      </div>
+    );
   }
-
-  const isResolved = normStatus === "RESOLVED" || normStatus === "CLOSED";
-  const isOnHold = normStatus === "ON_HOLD";
-  const isCanceled = normStatus === "CANCELED";
-
+  const active = INDEX[s] ?? 0;
+  const done = s === "RESOLVED" || s === "CLOSED";
+  const onHold = s === "ON_HOLD";
   return (
-    <div
-      data-testid="ticket-status"
-      className="mt-4 rounded-2xl border border-line bg-surface p-4 sm:p-5"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted">Status</span>
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-0.5 text-xs font-semibold ${
-              isOnHold
-                ? "border border-amber-300 bg-amber-100 text-amber-900"
-                : isCanceled
-                ? "border border-neutral-300 bg-neutral-100 text-neutral-600"
-                : isResolved
-                ? "bg-ok-bg text-ok"
-                : "bg-brand text-brand-ink"
-            }`}
-          >
-            {status.toLowerCase().replace("_", " ")}
-          </span>
-        </div>
-        {technicianName && (
-          <span className="text-xs text-ink-2">
-            Technician: <strong className="font-medium text-ink">{technicianName}</strong>
-          </span>
-        )}
+    <div data-testid="ticket-status" className="mt-4 rounded-2xl border border-line bg-surface p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 text-sm">
+        <p>
+          <span className="text-muted">Status </span>
+          <span className="font-semibold">{STATUS_LABEL[s] ?? s.toLowerCase()}</span>
+        </p>
+        {technicianName && <p className="text-ink-2">Technician: <span className="font-medium text-ink">{technicianName}</span></p>}
       </div>
-
-      {/* Stepper milestones */}
-      <div className="relative mt-5 px-2">
-        <div
-          className="absolute left-6 right-6 top-3.5 h-0.5 -translate-y-1/2 bg-line"
-          aria-hidden="true"
-        >
-          <div
-            className={`h-full transition-all duration-300 ${
-              isOnHold ? "bg-amber-500" : "bg-brand"
-            }`}
-            style={{
-              width: `${(Math.min(activeIndex, 4) / 4) * 100}%`,
-            }}
-          />
-        </div>
-
-        <ol className="relative flex justify-between">
-          {STEPS.map((step, idx) => {
-            const isCompleted = isResolved || idx < activeIndex;
-            const isCurrent = !isResolved && idx === activeIndex;
-            const isHoldStep = isCurrent && isOnHold;
-
-            return (
-              <li key={step.key} className="flex flex-col items-center">
-                <span
-                  className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-                    isCompleted
-                      ? "bg-brand text-brand-ink ring-2 ring-brand/30"
-                      : isHoldStep
-                      ? "border-2 border-amber-500 bg-surface text-amber-700 ring-4 ring-amber-500/20"
-                      : isCurrent
-                      ? "border-2 border-brand bg-surface font-bold text-brand-ink ring-4 ring-brand/20"
-                      : "border border-line bg-surface text-muted"
-                  }`}
-                  aria-current={isCurrent ? "step" : undefined}
-                >
-                  {isCompleted ? (
-                    <svg
-                      className="size-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  ) : isHoldStep ? (
-                    <span>⏸</span>
-                  ) : (
-                    <span>{idx + 1}</span>
-                  )}
-                </span>
-                <span
-                  className={`mt-2 text-center text-[11px] leading-tight sm:text-xs ${
-                    isHoldStep
-                      ? "font-semibold text-amber-800"
-                      : isCurrent
-                      ? "font-semibold text-ink"
-                      : isCompleted
-                      ? "font-medium text-ink-2"
-                      : "text-muted"
-                  }`}
-                >
-                  {isHoldStep ? "On Hold" : step.label}
-                </span>
-                <span className="mt-0.5 hidden text-center text-2xs text-muted sm:block">
-                  {isHoldStep ? "Work paused" : step.desc}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-
-      {/* On-Hold Alert Notice */}
-      {isOnHold && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900">
-          <span className="text-sm">⏸️</span>
-          <div>
-            <p className="font-semibold">Work is temporarily on hold</p>
-            <p className="mt-0.5 text-amber-800">
-              Repairs are currently paused while waiting for required parts or access coordination. We will resume as soon as possible.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Canceled Alert Notice */}
-      {isCanceled && (
-        <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs text-muted">
-          This repair request has been canceled.
-        </div>
-      )}
+      <ol className="mt-4 grid grid-cols-5 gap-1 text-center">
+        {STEPS.map((step, i) => {
+          const complete = done || i < active;
+          const current = !done && i === active;
+          const paused = current && onHold;
+          return (
+            <li key={step.label} className="flex flex-col items-center" aria-current={current ? "step" : undefined}>
+              <span
+                className={`grid size-8 place-items-center rounded-full text-xs font-semibold ${
+                  complete ? "bg-brand text-brand-ink" : current ? "border-2 border-brand bg-surface text-ink" : "border border-line bg-surface text-muted"
+                }`}
+              >
+                {complete ? <Check aria-hidden className="size-4" /> : paused ? <Pause aria-hidden className="size-3.5" /> : i + 1}
+              </span>
+              <span className={`mt-1.5 text-[11px] leading-tight sm:text-xs ${current ? "font-semibold text-ink" : "text-ink-2"}`}>{paused ? "On hold" : step.label}</span>
+              <span className="mt-0.5 hidden text-2xs text-muted sm:block">{paused ? "Work paused" : step.desc}</span>
+            </li>
+          );
+        })}
+      </ol>
+      {onHold && <p className="mt-4 rounded-xl bg-warn-bg p-3 text-xs text-warn">Work is paused for now. We&apos;ll update you here and by email when it resumes.</p>}
     </div>
   );
 }
