@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-06-01T04:48:32.432Z",
+  "recordedAt": "2026-06-01T14:43:49.281Z",
   "provider": {
     "provider": "gemini",
     "model": "gemini-3.5-flash-lite"
@@ -7,8 +7,8 @@
   "references": [
     {
       "redactions": 0,
-      "latencyMs": 1047,
-      "cached": false,
+      "latencyMs": 17,
+      "cached": true,
       "fallback": false,
       "guardTripped": false,
       "live": {
@@ -29,8 +29,8 @@
     },
     {
       "redactions": 0,
-      "latencyMs": 753,
-      "cached": false,
+      "latencyMs": 2,
+      "cached": true,
       "fallback": false,
       "guardTripped": false,
       "live": {
@@ -57,8 +57,8 @@
     },
     {
       "redactions": 2,
-      "latencyMs": 943,
-      "cached": false,
+      "latencyMs": 2,
+      "cached": true,
       "fallback": false,
       "guardTripped": false,
       "live": {
@@ -130,7 +130,7 @@
     }
   ],
   "manifest": {
-    "recorded_at": "2026-06-01T00:48:31-0400",
+    "recorded_at": "2026-06-01T10:43:48-0400",
     "host": {
       "chip": "Apple M1 Pro",
       "ram_gb": 16,
@@ -138,23 +138,20 @@
       "python": "3.14.6",
       "power": "Now drawing from 'AC Power'"
     },
-    "exclusive_compute": {
-      "held": true,
-      "holder": "localhost-ai-bench"
-    },
     "load": {
       "loadavg": [
-        "20.23",
-        "15.90",
-        "10.48"
+        "21.18",
+        "8.82",
+        "5.72"
       ],
-      "cpu_usage": "CPU usage: 57.91% user, 34.16% sys, 7.91% idle",
-      "docker_containers_running": 8,
-      "swap": "total = 12288.00M  used = 11840.12M  free = 447.88M  (encrypted)"
+      "cpu_usage": "CPU usage: 50.91% user, 48.77% sys, 0.30% idle",
+      "docker_containers_running": 5,
+      "swap": "total = 13312.00M  used = 12429.81M  free = 882.19M  (encrypted)"
     },
     "extra": {
       "model": "gemini-3.5-flash-lite",
       "task": "live-smoke"
-    }
+    },
+    "exclusive_run": true
   }
 }

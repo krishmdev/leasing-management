@@ -54,7 +54,13 @@ for (const [title, description] of TICKETS) {
   triage.push({ title, live: await triageTicket({ agencyId: agency.id }, dto), offline: offlineTriage(dto) });
 }
 let manifest: unknown = null;
-if (process.env.RUN_MANIFEST) manifest = JSON.parse(execFileSync(process.env.RUN_MANIFEST, [`model=${providerConfig().model}`, "task=live-smoke"], { encoding: "utf8" }));
+if (process.env.RUN_MANIFEST) {
+  // Keep host facts; replace any scheduling details with a single flag.
+  const m = JSON.parse(execFileSync(process.env.RUN_MANIFEST, [`model=${providerConfig().model}`, "task=live-smoke"], { encoding: "utf8" })) as Record<string, unknown>;
+  const exclusive = m.exclusive_compute as { held?: boolean } | undefined;
+  delete m.exclusive_compute;
+  manifest = { ...m, exclusive_run: !!exclusive?.held };
+}
 const out = {
   recordedAt: new Date().toISOString(), provider: providerConfig(), references,
   rationale: { source: rationale.source, guardTripped: rationale.guardTripped, mentionsProtected: mentionsProtected(rationale.summary), chars: rationale.summary.length, text: rationale.summary },
