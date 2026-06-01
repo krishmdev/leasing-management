@@ -83,7 +83,7 @@ test("assisted agency: apply, reference, screening, staff approval, lease signed
   }, 90_000, 1500);
   await staff.getByRole("link", { name: "Jamie O." }).first().click();
   await expect(staff.getByText("Agent timeline")).toBeVisible();
-  await expect(staff.getByText("policy.apply")).toBeVisible();
+  await expect(staff.getByText("Applied the agency's automation setting")).toBeVisible();
   await staff.getByRole("button", { name: "Record decision" }).click();
   await expect(staff.getByText(/approve by staff/)).toBeVisible();
 

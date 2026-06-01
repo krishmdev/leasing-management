@@ -3,7 +3,7 @@ import { requireStaff } from "@/server/session";
 import { maskName } from "@/server/domain/desk/applications";
 import { decryptApplication } from "@/server/domain/applications/service";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
-import { OutcomeBadge, human } from "@/components/desk/bits";
+import { OutcomeBadge, flagText } from "@/components/desk/bits";
 import { relative } from "@/lib/format";
 import { requestTime } from "@/lib/time";
 import { dismissTaskAction } from "../actions";
@@ -44,7 +44,7 @@ function TaskList({ items, empty, agencySlug, now }: { items: Tasks; empty: stri
                 <p className="text-2xs text-muted">{a ? `${a.unit.property.name} ${a.unit.label}` : ""} · opened {relative(t.createdAt, now)}</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {t.escalationReasons.map((r) => <Badge key={r} tone="warn">{human(r)}</Badge>)}
+                {t.escalationReasons.map((r) => <Badge key={r} tone="warn">{flagText(r)}</Badge>)}
                 {draft?.outcome && <span className="text-2xs text-muted">draft:</span>}
                 {draft?.outcome && <OutcomeBadge outcome={draft.outcome} />}
               </div>

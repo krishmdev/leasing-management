@@ -89,7 +89,10 @@ export function DecisionPanel({
                   <Textarea id="overrideReason" name="overrideReason" required={overriding} className="min-h-16" />
                 </Field>
               )}
-              <SubmitButton className="w-full" disabled={!choice} pendingLabel="Recording…">Record decision</SubmitButton>
+              <SubmitButton className="w-full" disabled={!choice} aria-describedby="decide-help" pendingLabel="Recording…">Record decision</SubmitButton>
+              <p id="decide-help" className="text-2xs text-muted">
+                {!choice ? "Pick an outcome to continue." : choice === "APPROVE" ? "The applicant gets an approval email and a lease to sign." : "The applicant gets a written notice with the reasons you checked."}
+              </p>
             </>
           )
         }

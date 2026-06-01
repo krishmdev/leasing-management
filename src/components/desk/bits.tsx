@@ -21,9 +21,30 @@ export function UrgencyBadge({ urgency }: { urgency: string }) {
   return <Badge tone={URG[urgency]} dot={urgency === "EMERGENCY"}>{human(urgency)}</Badge>;
 }
 
-/** Score out of 100 as a horizontal bar with the approve/conditional thresholds marked. */
+export const FLAG_TEXT: Record<string, string> = {
+  THIN_FILE: "No credit score on file (thin file), so credit was scored neutral",
+  SUBSIDY_ALT_EVIDENCE: "Uses rental assistance and offered other proof of ability to pay; review that evidence",
+  EVICTION_RECORD: "Eviction judgment within the last 5 years",
+  IDENTITY_UNVERIFIED: "The screening company couldn't verify identity",
+  DATA_CONFLICT: "The screening company couldn't verify the stated income",
+  REFERENCE_CONCERN: "A landlord reported lease violations or wouldn't rent again",
+  LLM_GUARD_TRIPPED: "The written explanation mentioned something it shouldn't; a template was used",
+  INCOME_BELOW_MIN: "Income is below 2x the tenant's share of rent",
+  NO_REFERENCES: "No landlord references were received",
+  REFERENCES_INCOMPLETE: "Not every reference came back",
+  AUTOMATION_PAUSED: "Automation was paused when it tried to approve",
+  AUTOMATION_LEVEL_CHANGED: "The automation level changed before it could approve",
+  DAILY_CAP_REACHED: "Today's automatic approval limit was reached",
+  UNIT_NO_LONGER_AVAILABLE: "Another applicant signed for this home first",
+  BELOW_AUTO_APPROVE_SCORE: "Score is below the automatic approval threshold",
+  CREDIT_BAND_NOT_ALLOWED: "Credit band isn't one this agency approves automatically",
+  NEEDS_REVIEW: "Needs a person to review",
+};
+export const flagText = (f: string) => FLAG_TEXT[f.replace(/^FLAG_/, "")] ?? human(f.replace(/^FLAG_/, ""));
+
+/** Score out of 100 on a neutral bar with the approve/conditional thresholds marked; the chip next to it carries the status color. */
 export function ScoreBar({ score, approve = 75, conditional = 60 }: { score: number; approve?: number; conditional?: number }) {
-  const tone = score >= approve ? "bg-ok" : score >= conditional ? "bg-warn" : "bg-bad";
+  const tone = "bg-ink";
   return (
     <div className="w-full">
       <div className="relative h-2 rounded-full bg-black/10" role="img" aria-label={`Score ${score} of 100`}>
@@ -56,6 +77,15 @@ export function FactorRow({ factor, points, max, detail }: { factor: string; poi
 
 const STEP_TONE: Record<string, string> = { SUCCEEDED: "bg-ok", RUNNING: "bg-info animate-pulse", PENDING: "bg-line-strong", FAILED: "bg-warn", DEAD: "bg-bad" };
 
+export const STEP_TITLES: Record<string, string> = {
+  "screening.invite": "Sent the screening invitation",
+  "screening.fetchSummary": "Got the screening report",
+  "references.analyze": "Read the landlord references",
+  "rubric.evaluate": "Scored against the criteria",
+  "rationale.generate": "Wrote the explanation",
+  "policy.apply": "Applied the agency's automation setting",
+};
+
 export function Timeline({ steps }: { steps: { id: string; stepName: string; status: string; attempt: number; durationMs: number | null; outputSummary: unknown; error: string | null; finishedAt: Date | null }[] }) {
   if (!steps.length) return <p className="text-[13px] text-muted">The agent hasn&apos;t started on this application yet.</p>;
   return (
@@ -66,7 +96,7 @@ export function Timeline({ steps }: { steps: { id: string; stepName: string; sta
           <li key={s.id} className="relative">
             <span className={cx("absolute -left-[21px] top-1 size-2.5 rounded-full ring-2 ring-surface", STEP_TONE[s.status])} aria-hidden />
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="font-mono text-[12px] font-medium">{s.stepName}</p>
+              <p className="text-[13px] font-medium">{STEP_TITLES[s.stepName] ?? s.stepName}</p>
               <p className="font-mono text-2xs text-muted">
                 {human(s.status)}
                 {s.attempt > 1 && ` · attempt ${s.attempt}`}
@@ -74,6 +104,9 @@ export function Timeline({ steps }: { steps: { id: string; stepName: string; sta
               </p>
             </div>
             {Object.keys(sum).length > 0 && (
+              <details className="mt-0.5">
+              <summary className="cursor-pointer text-2xs text-muted">Technical details</summary>
+              <p className="mt-1 font-mono text-2xs text-muted">{s.stepName}</p>
               <dl className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-ink-2">
                 {Object.entries(sum).map(([k, v]) => (
                   <div key={k} className="flex gap-1">
@@ -82,6 +115,7 @@ export function Timeline({ steps }: { steps: { id: string; stepName: string; sta
                   </div>
                 ))}
               </dl>
+              </details>
             )}
             {s.error && <p className="mt-1 font-mono text-2xs text-bad">{s.error}</p>}
           </li>

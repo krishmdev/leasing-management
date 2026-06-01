@@ -4,7 +4,7 @@ import { requireStaff } from "@/server/session";
 import { can } from "@/server/access";
 import { applicationDetail } from "@/server/domain/desk/applications";
 import { Alert, Badge, Card, CardHeader, PageHeader } from "@/components/ui";
-import { AppStatus, FactorRow, OutcomeBadge, ScoreBar, Timeline, human } from "@/components/desk/bits";
+import { AppStatus, FactorRow, OutcomeBadge, ScoreBar, Timeline, flagText, human } from "@/components/desk/bits";
 import { DecisionPanel } from "./DecisionPanel";
 import { REASON_OPTIONS } from "@/server/domain/screening/rubric";
 import { RevealPanel } from "./RevealPanel";
@@ -38,7 +38,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ ag
       {openTask && (
         <div className="mb-4">
           <Alert tone={openTask.type === "ESCALATION" ? "warn" : "info"} title={openTask.type === "ESCALATION" ? "Needs a person" : "Waiting for your decision"}>
-            {openTask.escalationReasons.length ? openTask.escalationReasons.map(human).join(", ") : "The agent drafted a decision below. Nothing is sent until you approve it."}
+            {openTask.escalationReasons.length ? openTask.escalationReasons.map(flagText).join(". ") + "." : "The agent drafted a decision below. Nothing is sent until you approve it."}
           </Alert>
         </div>
       )}
@@ -58,7 +58,11 @@ export default async function ApplicationPage({ params }: { params: Promise<{ ag
                 </div>
                 <div>{breakdown.factors.map((f) => <FactorRow key={f.factor} {...f} />)}</div>
                 {rec.flags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">{rec.flags.map((f) => <Badge key={f} tone="warn">{human(f)}</Badge>)}</div>
+                  <ul className="space-y-1 text-[13px]">
+                    {rec.flags.map((f) => (
+                      <li key={f} className="flex gap-2"><Badge tone="warn">flag</Badge><span>{flagText(f)}</span></li>
+                    ))}
+                  </ul>
                 )}
                 <div className="rounded-md bg-paper p-3 text-[13px] leading-relaxed text-ink-2">
                   <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-muted">Rationale · {rec.rationaleSource.toLowerCase()}</p>
@@ -69,7 +73,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ ag
                     <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Adverse-action reasons if declined</p>
                     <ul className="mt-1 space-y-0.5 text-[13px]">
                       {breakdown.reasonCodes.map((r) => (
-                        <li key={r.code}>{r.text} <span className="font-mono text-2xs text-muted">({r.basis.toLowerCase().replace("_", " ")}, −{r.pointsLost})</span></li>
+                        <li key={r.code}>{r.text}</li>
                       ))}
                     </ul>
                   </div>
