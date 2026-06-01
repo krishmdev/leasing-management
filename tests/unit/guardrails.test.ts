@@ -32,6 +32,23 @@ describe("redaction", () => {
     expect(redact("Paid rent on time, kept the unit clean, gave 30 days notice. Parking spot 2B.").count).toBe(0);
   });
 
+  it("drops the modifier with the redacted word, so 'her late husband' leaves no 'late'", () => {
+    const r = redact("Her late husband passed away. Her dear elderly mother visits.");
+    expect(r.text).not.toMatch(/\blate\b|\bdear\b|elderly/i);
+    expect(redact("She is 72.").count).toBe(1);
+    expect(redact("The unit is 850 sq ft and rent was 30 days late once.").count).toBe(0);
+    for (const w of ["women", "men", "wives", "grandmother", "Mormon", "widower", "Sudanese", "PTSD", "bipolar", "Ramadan", "hijab", "atheist", "stepmother", "mother-in-law"]) {
+      expect(redact(`note: ${w}.`).count, w).toBeGreaterThan(0);
+    }
+  });
+
+  it("redacts anything shaped like an SSN, and a stated date of birth", () => {
+    for (const t of ["SSN 078-05-1120 on file", "ssn 078 05 1120", "her number is 078051120", "born on 04/12/1990", "DOB: 1990-04-12"]) {
+      const r = redact(t);
+      expect(r.text, t).not.toMatch(/078|1120|1990/);
+    }
+  });
+
   it("catches multi-word protected phrases", () => {
     expect(redact("She has an emotional support animal and a Section 8 voucher.").text).not.toMatch(/support animal|section 8|voucher/i);
   });
@@ -74,5 +91,16 @@ describe("DTO allowlist", () => {
   it("the template rationale never mentions protected terms", () => {
     const s = templateRationale({ outcome: "NEEDS_REVIEW", score: 70, breakdown: [{ factor: "credit", points: 14, max: 25, detail: "x" }], flags: ["THIN_FILE", "SUBSIDY_ALT_EVIDENCE"], conditions: [] }).summary;
     expect(mentionsProtected(s)).toBe(false);
+  });
+});
+
+describe("free-text inputs refuse SSNs", () => {
+  it("interest message, reference text and ticket description", async () => {
+    const { InterestInput } = await import("@/server/domain/leads/service");
+    const { TicketInput } = await import("@/server/domain/maintenance/tickets");
+    const ssn = "my ssn is 078-05-1120";
+    expect(InterestInput.safeParse({ name: "Ann Lee", email: "a@b.co", desiredMoveIn: "2026-11-01", message: ssn }).success).toBe(false);
+    expect(TicketInput.safeParse({ title: "Sink", description: ssn, permissionToEnter: false }).success).toBe(false);
+    expect(InterestInput.safeParse({ name: "Ann Lee", email: "a@b.co", desiredMoveIn: "2026-11-01", message: "Is parking included?" }).success).toBe(true);
   });
 });

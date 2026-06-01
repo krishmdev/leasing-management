@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { looksLikeSsn, NO_SSN_MESSAGE } from "@/lib/pii";
 import sharp from "sharp";
 import { fileTypeFromBuffer } from "file-type";
 import { uuidv7 } from "@/lib/ids";
@@ -14,7 +15,7 @@ import { canTransition, type TicketStatus } from "./stateMachine";
 
 export const TicketInput = z.object({
   title: z.string().trim().min(3, "Add a short title").max(120),
-  description: z.string().trim().min(5, "Describe the problem").max(4000),
+  description: z.string().trim().min(5, "Describe the problem").max(4000).refine((m) => !looksLikeSsn(m), NO_SSN_MESSAGE),
   permissionToEnter: z.coerce.boolean(),
 });
 

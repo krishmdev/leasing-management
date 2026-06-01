@@ -4,6 +4,7 @@ import { evaluateRubric, type RubricInput } from "@/server/domain/screening/rubr
 import { DEFAULT_CRITERIA as C } from "@/server/domain/screening/criteria";
 import { offlineAnalyzeReference } from "@/server/ai/offline";
 import { redact } from "@/server/ai/guardrails/redact";
+import { PROTECTED_CATEGORIES } from "@/server/ai/guardrails/protectedTerms";
 
 const goodRef = { paidOnTime: "ALWAYS", lateCount: 0, leaseViolations: false, noticeGiven: true, propertyCondition: 5, wouldRentAgain: "YES" } as const;
 const text = (t: string) => offlineAnalyzeReference({ referenceId: "r", structured: goodRef, redactedText: redact(t).text, tenancyMonths: 24 });
@@ -108,30 +109,36 @@ describe("bounded LLM influence", () => {
 });
 
 describe("fairness invariance", () => {
+  const terms = [...new Set(Object.values(PROTECTED_CATEGORIES).flat())];
+  const inflect = (t: string, n: number) => (n === 0 ? t : n === 1 ? (t.endsWith("y") ? `${t.slice(0, -1)}ies` : `${t}s`) : `${t}'s`);
   const names = fc.constantFrom("Maya Chen", "Jamal Washington", "Priya Raman", "José García", "Olga Petrova", "Nguyen Van An", "Fatima Al-Sayed");
-  const protectedBits = fc.constantFrom(
-    "They have two kids.", "She is pregnant.", "He uses a wheelchair.", "They go to church every Sunday.", "She pays with a Section 8 voucher.",
-    "He's a veteran.", "They're a same-sex couple.", "She is from Mexico and speaks Spanish.", "He is retired.", "They are married.", "",
+  const subject = fc.constantFrom("She", "He", "They", "The tenant");
+  const modifier = fc.constantFrom("", "late ", "young ", "elderly ", "dear ", "former ", "devout ");
+  // Sentences built from the whole lexicon, inflected, with modifiers and stated ages, so the
+  // test isn't limited to phrasings someone thought of in advance.
+  const protectedSentence = fc.oneof(
+    fc.tuple(subject, modifier, fc.constantFrom(...terms), fc.integer({ min: 0, max: 2 })).map(([s, m, t, n]) => `${s} often talked about their ${m}${inflect(t, n)}.`),
+    fc.tuple(subject, fc.constantFrom(...terms)).map(([s, t]) => `${s} mentioned being ${t}.`),
+    fc.tuple(subject, fc.integer({ min: 18, max: 99 })).map(([s, a]) => `${s} is ${a}.`),
+    fc.tuple(subject, fc.integer({ min: 18, max: 99 })).map(([s, a]) => `${s} is ${a} years old.`),
+    fc.constant("Her late husband passed away last year."),
   );
   const pets = fc.constantFrom("", "They had a cat.", "Their dog was friendly.", "They kept two small fish.");
 
-  it("names, occupants, pets and protected terms in reference text don't change the score or outcome", () => {
+  it("names, occupants, pets and protected language in reference text don't change the analysis, the score or the flags", () => {
     const core = "Always paid rent on time. Left the unit clean. No complaints from neighbors.";
-    const reference = base();
-    const baseline = evaluateRubric(reference, C);
+    const dims = (a: ReturnType<typeof offlineAnalyzeReference>) => ({ p: a.paymentReliability, c: a.propertyCare, l: a.leaseCompliance, f: a.redFlags });
+    const baseline = offlineAnalyzeReference({ referenceId: "r", structured: goodRef, redactedText: redact(`rented from me for two years. ${core}`).text, tenancyMonths: 24 });
+    const r0 = evaluateRubric({ ...base(), references: { expected: 1, received: [{ structured: goodRef, text: baseline }] } }, C);
     fc.assert(
-      fc.property(names, protectedBits, pets, fc.integer({ min: 1, max: 8 }), (name, prot, pet, occupants) => {
-        const raw = `${name} rented from me for two years. ${prot} ${core} ${pet} ${occupants} people lived there.`;
+      fc.property(names, fc.array(protectedSentence, { minLength: 1, maxLength: 3 }), pets, fc.integer({ min: 1, max: 8 }), (name, prot, pet, occupants) => {
+        const raw = `${name} rented from me for two years. ${prot.join(" ")} ${core} ${pet} ${occupants} people lived there.`;
         const analysis = offlineAnalyzeReference({ referenceId: "r", structured: goodRef, redactedText: redact(raw, { knownNames: [name] }).text, tenancyMonths: 24 });
-        const withBaseText = offlineAnalyzeReference({ referenceId: "r", structured: goodRef, redactedText: redact(`rented from me for two years. ${core}`).text, tenancyMonths: 24 });
-        expect({ ...analysis, evidenceQuotes: [] }).toEqual({ ...withBaseText, evidenceQuotes: [], confidence: analysis.confidence });
-        const r = evaluateRubric({ ...reference, references: { expected: 1, received: [{ structured: goodRef, text: analysis }] } }, C);
-        const r0 = evaluateRubric({ ...reference, references: { expected: 1, received: [{ structured: goodRef, text: withBaseText }] } }, C);
-        expect(r.score).toBe(r0.score);
-        expect(r.outcome).toBe(r0.outcome);
-        expect(r.outcome).toBe(baseline.outcome);
+        expect(dims(analysis)).toEqual(dims(baseline));
+        const r = evaluateRubric({ ...base(), references: { expected: 1, received: [{ structured: goodRef, text: analysis }] } }, C);
+        expect([r.score, r.outcome, r.flags]).toEqual([r0.score, r0.outcome, r0.flags]);
       }),
-      { numRuns: 300 },
+      { numRuns: 1000 },
     );
   });
 

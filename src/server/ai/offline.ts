@@ -10,7 +10,8 @@ const POS = {
   comply: [/no (issues|complaints|problems)/i, /respectful/i, /quiet/i, /followed the lease/i, /great tenant/i, /recommend/i, /pleasure/i],
 };
 const NEG = {
-  pay: [/\blate\b/i, /behind on rent/i, /bounced/i, /unpaid/i, /owed/i, /payment plan/i],
+  // Rental lateness specifically, so "late" in other senses can't cost points.
+  pay: [/\b(?:paid|pays|paying|was|were|often|sometimes|always) late\b/i, /\blate (?:rent|payments?|fees?|with (?:the )?rent)\b/i, /behind on rent/i, /bounced/i, /unpaid/i, /owed/i, /payment plan/i],
   care: [/damage/i, /\bmess\b/i, /dirty/i, /repairs? (were|was) needed/i, /holes? in/i, /stain/i],
   comply: [/complaints?/i, /noise/i, /unauthori[sz]ed/i, /violation/i, /warning/i, /notice to/i, /eviction/i, /smok(ing|ed)/i],
 };
@@ -22,7 +23,7 @@ export function offlineAnalyzeReference(dto: ReferenceDTO): ReferenceAnalysis {
   const t = dto.redactedText;
   const dims = (["pay", "care", "comply"] as const).map((k) => clamp(3 + count(t, POS[k]) - 1.5 * count(t, NEG[k])));
   const redFlags: ReferenceAnalysis["redFlags"] = [];
-  if (/\blate\b|behind on rent|bounced/i.test(t)) redFlags.push("LATE_PAYMENTS");
+  if (NEG.pay.slice(0, 4).some((re) => re.test(t))) redFlags.push("LATE_PAYMENTS");
   if (/damage|holes? in/i.test(t)) redFlags.push("PROPERTY_DAMAGE");
   if (/violation|unauthori[sz]ed/i.test(t)) redFlags.push("LEASE_VIOLATION");
   if (/noise|complaints?/i.test(t)) redFlags.push("NOISE_COMPLAINTS");

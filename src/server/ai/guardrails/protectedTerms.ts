@@ -14,21 +14,36 @@ export const PROTECTED_CATEGORIES: Record<string, string[]> = {
     "japanese", "russian", "ukrainian", "polish", "irish", "italian", "german", "french", "brazilian", "salvadoran", "guatemalan",
     "honduran", "cuban", "dominican", "haitian", "jamaican", "puerto rican", "iranian", "iraqi", "syrian", "afghan", "pakistani",
     "bangladeshi", "egyptian", "moroccan", "turkish", "armenian", "samoan", "tongan", "hmong", "cambodian", "laotian", "thai",
-    "burmese", "nepali", "tibetan", "native american", "indigenous", "foreign", "refugee", "asylum", "black", "white", "asian", "latino", "latina", "latinx", "hispanic", "african", "caucasian",
+    "burmese", "nepali", "tibetan", "native american", "indigenous", "foreign", "refugee", "asylum",
+    "sudanese", "congolese", "yemeni", "lebanese", "jordanian", "saudi", "peruvian", "colombian", "venezuelan", "nicaraguan",
+    "ecuadorian", "chilean", "argentinian", "argentine", "bolivian", "indonesian", "malaysian", "sri lankan", "tamil", "punjabi",
+    "gujarati", "taiwanese", "mongolian", "romanian", "bulgarian", "serbian", "croatian", "bosnian", "albanian", "hungarian",
+    "czech", "greek", "portuguese", "dutch", "swedish", "british", "scottish", "canadian", "australian", "caribbean", "latin american", "black", "white", "asian", "latino", "latina", "latinx", "hispanic", "african", "caucasian",
     "mexican", "chinese", "indian", "filipino", "vietnamese", "korean", "arab", "middle eastern", "ethnic", "ethnicity",
     "immigrant", "foreigner", "accent", "national origin", "ancestry", "skin color",
   ],
-  religion: ["church", "mosque", "synagogue", "temple", "religious", "religion", "christian", "muslim", "jewish", "hindu", "buddhist", "sikh", "catholic", "pray", "prayer", "bible", "quran", "torah"],
-  sex_gender: ["gender", "transgender", "trans", "pregnant", "pregnancy", "maternity", "woman", "man", "female", "male", "girlfriend", "boyfriend", "husband", "wife"],
+  religion: [
+    "church", "mosque", "synagogue", "temple", "religious", "religion", "christian", "muslim", "jewish", "hindu", "buddhist", "sikh", "catholic", "pray", "prayer", "bible", "quran", "torah",
+    "mormon", "lds", "atheist", "agnostic", "protestant", "evangelical", "baptist", "orthodox", "jehovah's witness", "ramadan", "hijab", "yarmulke", "turban", "sabbath", "worship", "faith",
+  ],
+  sex_gender: [
+    "gender", "transgender", "trans", "pregnant", "pregnancy", "maternity", "woman", "women", "man", "men", "female", "male", "lady", "ladies", "guy", "girl", "boy",
+    "girlfriend", "boyfriend", "husband", "wife", "wives", "fiance", "fiancee",
+  ],
   sexual_orientation: ["gay", "lesbian", "bisexual", "queer", "same-sex", "partner"],
   familial_status: [
     "kid", "kids", "children", "child", "baby", "babies", "toddler", "son", "daughter", "family", "families", "newborn", "custody", "single mom", "single mother", "single dad",
     "mom", "mother", "dad", "father", "parent", "grandkid", "grandchild", "grandchildren", "grandson", "granddaughter", "grandma", "grandpa", "grandparent",
     "sister", "brother", "sibling", "niece", "nephew", "aunt", "uncle", "stepson", "stepdaughter", "infant", "teen", "expecting",
+    "grandmother", "grandfather", "stepmother", "stepfather", "stepchild", "stepchildren", "in-law", "in-laws", "mother-in-law", "father-in-law", "cousin", "twins",
   ],
-  disability: ["disability", "disabled", "wheelchair", "handicap", "handicapped", "blind", "deaf", "service animal", "emotional support animal", "esa", "mental illness", "depression", "anxiety", "autism", "therapy", "medication", "hiv", "cancer", "chronic illness"],
+  disability: [
+    "disability", "disabled", "wheelchair", "handicap", "handicapped", "blind", "deaf", "service animal", "emotional support animal", "esa", "mental illness", "depression", "anxiety", "autism", "therapy", "medication", "hiv", "cancer", "chronic illness",
+    "ptsd", "bipolar", "schizophrenia", "schizophrenic", "dementia", "alzheimer's", "diabetes", "diabetic", "epilepsy", "seizure", "paraplegic", "quadriplegic", "amputee", "crutches",
+    "hearing aid", "sign language", "adhd", "ocd", "down syndrome", "cerebral palsy", "multiple sclerosis", "dialysis", "chemo", "chemotherapy", "sober", "sobriety", "rehab", "recovery",
+  ],
   age: ["elderly", "senior citizen", "retired", "retiree", "young", "old lady", "old man", "teenager", "millennial"],
-  marital_status: ["married", "divorced", "divorce", "widow", "widowed", "separated", "single"],
+  marital_status: ["married", "divorced", "divorce", "widow", "widower", "widowed", "separated", "single", "spouse", "newlywed", "unmarried"],
   source_of_income: ["section 8", "voucher", "housing choice", "hud", "welfare", "ssi", "ssdi", "disability benefits", "food stamps", "calfresh", "unemployment benefits"],
   citizenship_immigration: ["citizen", "citizenship", "undocumented", "illegal alien", "green card", "visa", "immigration status", "deported"],
   military_veteran: ["veteran", "military", "army", "navy", "marine", "deployed"],
@@ -48,6 +63,6 @@ const term = (t: string) => (t.endsWith("y") ? `${escape(t.slice(0, -1))}(?:y|ie
 const LEXICON = `\\b(?:${[...new Set(Object.values(PROTECTED_CATEGORIES).flat())].sort((a, b) => b.length - a.length).map(term).join("|")})(?:'s|s')?\\b`;
 
 /** Ages stated outright: "72 years old", "72-year-old", "in her 60s", "sixty-something". */
-const AGE = String.raw`\b\d{1,3}[\s-]*(?:years?|yrs?)[\s-]*old\b|\bin (?:his|her|their|my|our) (?:early |mid |late )?(?:\d0s|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b|\b(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|\d0)[\s-]?something\b`;
+const AGE = String.raw`\b(?:is|was|she's|he's|they're|aged?|turning|turned)\s+\d{2,3}\b(?!\s*(?:days?|weeks?|months?|years?|hours?|minutes?|units?|%|percent|sq|square|ft|feet|dollars?|miles?))|\b\d{1,3}[\s-]*(?:years?|yrs?)[\s-]*old\b|\bin (?:his|her|their|my|our) (?:early |mid |late )?(?:\d0s|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b|\b(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|\d0)[\s-]?something\b`;
 
 export const PROTECTED_RE = new RegExp(`${LEXICON}|${AGE}`, "gi");
