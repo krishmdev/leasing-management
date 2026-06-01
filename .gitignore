@@ -29,4 +29,3 @@ next-env.d.ts
 
 # uploads, rendered PDFs, e2e artifacts
 /storage/
-/.agents/

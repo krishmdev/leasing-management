@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import { requireStaff } from "@/server/session";
 import { Badge, EmptyState, PageHeader, Stat } from "@/components/ui";
 import { UrgencyBadge, human } from "@/components/desk/bits";
@@ -68,7 +69,7 @@ export default async function Maintenance({ params }: { params: Promise<{ agency
                           <UrgencyBadge urgency={t.urgency} />
                           {t.photos && t.photos.length > 0 && (
                             <span className="inline-flex items-center gap-0.5 rounded bg-black/5 px-1.5 py-0.5 font-mono text-2xs font-medium text-ink-2" title={`${t.photos.length} photo${t.photos.length > 1 ? "s" : ""}`}>
-                              📷 {t.photos.length}
+                              <Camera aria-hidden className="size-3" /> {t.photos.length}
                             </span>
                           )}
                           {t.possibleAccommodationRequest && <Badge tone="info">accommodation?</Badge>}

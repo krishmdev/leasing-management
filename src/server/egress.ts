@@ -1,7 +1,7 @@
 import net from "node:net";
 import { db } from "@/server/db";
 
-// Same targets as the shared portfolio canary (.tools/egress_canary.py).
+// Hosts a leaking process would plausibly reach: a public resolver and the model and model-hub APIs.
 const TARGETS: [string, number][] = [
   ["1.1.1.1", 443],
   ["api.openai.com", 443],
