@@ -1,15 +1,15 @@
 {
-  "recordedAt": "2026-06-01T22:10:30.802Z",
-  "commit": "4ba98c7",
+  "recordedAt": "2026-06-01T10:49:07.382Z",
+  "commit": "2a13629",
   "unit": {
-    "passed": 93,
+    "passed": 96,
     "failed": 0,
     "suites": 34
   },
   "integration": {
-    "passed": 72,
+    "passed": 76,
     "failed": 0,
-    "suites": 26
+    "suites": 28
   },
   "e2e": {
     "passed": 7,
