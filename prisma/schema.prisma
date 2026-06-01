@@ -779,7 +779,8 @@ model OutboxMessage {
   payload           Json
   status            OutboxStatus @default(PENDING)
   attempts          Int          @default(0)
-  availableAt       DateTime     @default(now()) @db.Timestamptz(3)
+  /// DB clock, not the app's: the claim query compares it with clock_timestamp().
+  availableAt       DateTime     @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   leaseUntil        DateTime?    @db.Timestamptz(3)
   firstAttemptAt    DateTime?    @db.Timestamptz(3)
   lastAttemptAt     DateTime?    @db.Timestamptz(3)
