@@ -5,7 +5,7 @@ const APP_TONE: Record<string, Tone> = {
   DRAFT: "neutral", SUBMITTED: "info", REFERENCES_PENDING: "info", SCREENING: "info", SCREENED: "info",
   DECISION_PENDING: "warn", APPROVED: "ok", CONDITIONAL: "ok", DECLINED: "bad", WITHDRAWN: "neutral", LEASE_SENT: "brand", LEASE_SIGNED: "ok",
 };
-export const human = (s: string) => s.toLowerCase().replaceAll("_", " ");
+export const human = (s: string) => s.toLowerCase().replaceAll("_", " ").replace(/^locks security$/, "locks and security");
 
 export function AppStatus({ status }: { status: string }) {
   return <Badge tone={APP_TONE[status] ?? "neutral"}>{human(status)}</Badge>;
@@ -24,12 +24,12 @@ export function UrgencyBadge({ urgency }: { urgency: string }) {
 export const FLAG_TEXT: Record<string, string> = {
   THIN_FILE: "No credit score on file (thin file), so credit was scored neutral",
   SUBSIDY_ALT_EVIDENCE: "Uses rental assistance and offered other proof of ability to pay; review that evidence",
-  EVICTION_RECORD: "Eviction judgment within the last 5 years",
+  EVICTION_RECORD: "Eviction judgment within the criteria's lookback period",
   IDENTITY_UNVERIFIED: "The screening company couldn't verify identity",
   DATA_CONFLICT: "The screening company couldn't verify the stated income",
   REFERENCE_CONCERN: "A landlord reported lease violations or wouldn't rent again",
   LLM_GUARD_TRIPPED: "The written explanation mentioned something it shouldn't; a template was used",
-  INCOME_BELOW_MIN: "Income is below 2x the tenant's share of rent",
+  INCOME_BELOW_MIN: "Income is below the lowest income band in the criteria",
   NO_REFERENCES: "No landlord references were received",
   REFERENCES_INCOMPLETE: "Not every reference came back",
   AUTOMATION_PAUSED: "Automation was paused when it tried to approve",
@@ -40,7 +40,18 @@ export const FLAG_TEXT: Record<string, string> = {
   CREDIT_BAND_NOT_ALLOWED: "Credit band isn't one this agency approves automatically",
   NEEDS_REVIEW: "Needs a person to review",
 };
-export const flagText = (f: string) => FLAG_TEXT[f.replace(/^FLAG_/, "")] ?? human(f.replace(/^FLAG_/, ""));
+/**
+ * Plain text for a flag. With the application's criteria config, the income and eviction lines
+ * name the agency's own numbers instead of the defaults.
+ */
+export function flagText(f: string, criteria?: unknown) {
+  const key = f.replace(/^FLAG_/, "");
+  const c = criteria as { incomeBands?: { minRatio: number }[]; evictionLookbackYears?: number } | null | undefined;
+  const minRatio = c?.incomeBands?.length ? Math.min(...c.incomeBands.map((b) => b.minRatio)) : null;
+  if (key === "INCOME_BELOW_MIN" && minRatio) return `Income is below ${minRatio}x the tenant's share of rent`;
+  if (key === "EVICTION_RECORD" && c?.evictionLookbackYears) return `Eviction judgment within the last ${c.evictionLookbackYears} years`;
+  return FLAG_TEXT[key] ?? human(key);
+}
 
 /** Score out of 100 on a neutral bar with the approve/conditional thresholds marked; the chip next to it carries the status color. */
 export function ScoreBar({ score, approve = 75, conditional = 60 }: { score: number; approve?: number; conditional?: number }) {

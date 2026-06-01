@@ -2,8 +2,13 @@ import Link from "next/link";
 import { requireStaff } from "@/server/session";
 import { Card, PageHeader } from "@/components/ui";
 import { dateLabel } from "@/lib/format";
+import { human } from "@/components/desk/bits";
 
 export const metadata = { title: "Audit log" };
+
+/** Enum-looking values (LOCKS_SECURITY, IN_PROGRESS) read as words; everything else as is. */
+const word = (v: unknown) => (typeof v === "string" && /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$|^[A-Z]{4,}$/.test(v) ? human(v) : String(v));
+const chipValue = (v: unknown) => (Array.isArray(v) ? v.map(word).join(", ") : typeof v === "object" && v !== null ? JSON.stringify(v) : word(v));
 
 const PAGE = 50;
 const FILTERS = ["application", "decision", "lease", "pii", "document", "ticket", "settings", "screening", "showing"];
@@ -63,7 +68,7 @@ export default async function Audit({ params, searchParams }: { params: Promise<
                     <div className="flex flex-wrap gap-1">
                       {meta.length === 0 && <span className="text-muted">—</span>}
                       {meta.map(([k, v]) => (
-                        <span key={k} className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-2xs">{k}: {Array.isArray(v) ? v.join(", ") : typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)}</span>
+                        <span key={k} className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-2xs">{k}: {chipValue(v)}</span>
                       ))}
                     </div>
                   </td>

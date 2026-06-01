@@ -16,7 +16,7 @@ async function loadTasks(agencySlug: string) {
   const ctx = await requireStaff(agencySlug, "applications.decide");
   return ctx.tdb.approvalTask.findMany({
     where: { status: "OPEN" },
-    include: { application: { include: { unit: { include: { property: true } }, recommendations: { orderBy: { createdAt: "desc" }, take: 1 } } } },
+    include: { application: { include: { criteria: true, unit: { include: { property: true } }, recommendations: { orderBy: { createdAt: "desc" }, take: 1 } } } },
     orderBy: [{ type: "desc" }, { createdAt: "asc" }],
   });
 }
@@ -44,7 +44,7 @@ function TaskList({ items, empty, agencySlug, now }: { items: Tasks; empty: stri
                 <p className="text-2xs text-muted">{a ? `${a.unit.property.name} ${a.unit.label}` : ""} · opened {relative(t.createdAt, now)}</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {t.escalationReasons.map((r) => <Badge key={r} tone="warn">{flagText(r)}</Badge>)}
+                {t.escalationReasons.map((r) => <Badge key={r} tone="warn">{flagText(r, t.application?.criteria?.config)}</Badge>)}
                 {draft?.outcome && <span className="text-2xs text-muted">draft:</span>}
                 {draft?.outcome && <OutcomeBadge outcome={draft.outcome} />}
               </div>

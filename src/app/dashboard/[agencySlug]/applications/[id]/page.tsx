@@ -60,7 +60,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ ag
                 {rec.flags.length > 0 && (
                   <ul className="space-y-1 text-[13px]">
                     {rec.flags.map((f) => (
-                      <li key={f} className="flex gap-2"><Badge tone="warn">flag</Badge><span>{flagText(f)}</span></li>
+                      <li key={f} className="flex gap-2"><Badge tone="warn">flag</Badge><span>{flagText(f, app.criteria?.config)}</span></li>
                     ))}
                   </ul>
                 )}

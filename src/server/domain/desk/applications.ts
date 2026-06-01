@@ -13,7 +13,7 @@ export const STATUS_GROUPS: Record<string, ApplicationStatus[]> = {
 };
 
 export function maskName(name: string | null) {
-  if (!name) return "Unnamed applicant";
+  if (!name) return "Removed applicant";
   const [first, ...rest] = name.trim().split(/\s+/);
   return rest.length ? `${first} ${rest.at(-1)![0]}.` : first;
 }
