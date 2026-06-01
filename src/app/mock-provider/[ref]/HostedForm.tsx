@@ -37,8 +37,8 @@ export function HostedForm({ ref_, personas }: { ref_: string; personas: { key: 
           ))}
         </div>
       </fieldset>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="consent" className="mt-1" /> I authorize MockCRA to prepare a tenant screening report and share a summary with the requesting property manager.
+      <label className="flex min-h-6 cursor-pointer items-start gap-2 text-sm">
+        <input type="checkbox" name="consent" className="mt-0.5 size-[18px] shrink-0" /> I authorize MockCRA to prepare a tenant screening report and share a summary with the requesting property manager.
       </label>
       {state && !state.ok && <p role="alert" className="text-sm text-red-700">{state.message}</p>}
       <button disabled={pending || !ssnOk || !dob} className="h-11 w-full rounded bg-[#0b2239] font-semibold text-white disabled:opacity-40">{pending ? "Verifying…" : "Verify and authorize"}</button>

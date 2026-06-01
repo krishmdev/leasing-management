@@ -45,8 +45,8 @@ export default async function Showings({ params }: { params: Promise<{ agencySlu
                     <td className="px-4 py-2 text-right">
                       {s.status === "SCHEDULED" && s.startsAt.getTime() < now && (
                         <div className="flex justify-end gap-1.5">
-                          <form action={markShowingAction.bind(null, agencySlug, s.id, "COMPLETED")}><button className="rounded border border-line-strong px-2 py-0.5 text-2xs">Attended</button></form>
-                          <form action={markShowingAction.bind(null, agencySlug, s.id, "NO_SHOW")}><button className="rounded border border-line-strong px-2 py-0.5 text-2xs">No-show</button></form>
+                          <form action={markShowingAction.bind(null, agencySlug, s.id, "COMPLETED")}><button className="min-h-7 rounded border border-line-strong px-2.5 text-2xs hover:bg-paper">Attended</button></form>
+                          <form action={markShowingAction.bind(null, agencySlug, s.id, "NO_SHOW")}><button className="min-h-7 rounded border border-line-strong px-2.5 text-2xs hover:bg-paper">No-show</button></form>
                         </div>
                       )}
                     </td>

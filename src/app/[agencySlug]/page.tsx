@@ -69,7 +69,7 @@ export default async function AgencyHome({ params }: { params: Promise<{ agencyS
       <section className="mx-auto mt-20 max-w-6xl px-5" aria-labelledby="buildings">
         <h2 id="buildings" className="display text-3xl font-semibold">Our buildings</h2>
         <div className="mt-6 grid gap-6 md:grid-cols-3">
-          {properties.map((p, i) => (
+          {properties.map((p) => (
             <article key={p.id} className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
               <BuildingArt seed={seedOf(p.id)} brand={t.brand} accent={t.accent} className="aspect-[16/10] w-full" label={`Illustration of ${p.name}`} />
               <div className="p-5">

@@ -34,7 +34,7 @@ export default async function Listings({ params }: { params: Promise<{ agencySlu
                       <td className="px-4 py-2 text-right">
                         {(u.status === "AVAILABLE" || u.status === "OFF_MARKET") && (
                           <form action={toggleListedAction.bind(null, agencySlug, u.id, u.status === "OFF_MARKET")}>
-                            <button className="rounded border border-line-strong px-2 py-0.5 text-2xs">{u.status === "OFF_MARKET" ? "List" : "Unlist"}</button>
+                            <button className="min-h-7 rounded border border-line-strong px-2.5 text-2xs hover:bg-paper">{u.status === "OFF_MARKET" ? "List" : "Unlist"}</button>
                           </form>
                         )}
                       </td>

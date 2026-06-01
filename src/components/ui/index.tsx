@@ -118,8 +118,8 @@ export function Field({
 
 export function Checkbox({ id, label, className, ...rest }: ComponentProps<"input"> & { id: string; label: ReactNode }) {
   return (
-    <label htmlFor={id} className={cx("flex items-start gap-2.5 text-sm text-ink-2", className)}>
-      <input id={id} type="checkbox" className="mt-0.5 size-4 shrink-0 accent-[color:var(--brand)]" {...rest} />
+    <label htmlFor={id} className={cx("flex min-h-6 cursor-pointer items-start gap-2.5 py-0.5 text-sm text-ink-2", className)}>
+      <input id={id} type="checkbox" className="mt-0.5 size-[18px] shrink-0 accent-[color:var(--brand)]" {...rest} />
       <span>{label}</span>
     </label>
   );

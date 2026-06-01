@@ -76,8 +76,8 @@ export function DecisionPanel({
                   <legend className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted">Reasons for the applicant&apos;s notice</legend>
                   <div className="space-y-1">
                     {reasons.map((r) => (
-                      <label key={r.code} className="flex gap-2 text-[13px]">
-                        <input type="checkbox" name="reason" value={r.code} defaultChecked={suggested.includes(r.code)} className="mt-0.5" />
+                      <label key={r.code} className="flex min-h-7 cursor-pointer items-start gap-2 rounded px-1 py-1 text-[13px] hover:bg-paper">
+                        <input type="checkbox" name="reason" value={r.code} defaultChecked={suggested.includes(r.code)} className="mt-0.5 size-[18px] shrink-0" />
                         <span>{r.text} <span className="text-2xs text-muted">({r.basis.toLowerCase().replace("_", " ")})</span></span>
                       </label>
                     ))}
