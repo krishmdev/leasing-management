@@ -49,6 +49,32 @@ describe("redaction", () => {
     }
   });
 
+  it("covers -ys plurals, accented names, and the wider lexicon", () => {
+    for (const w of ["the boys", "two guys", "the gays", "her service dog", "a caregiver", "a senior", "on Medicaid", "Medi-Cal", "SNAP", "EBT card", "social security",
+      "speaks Spanish", "Mandarin", "Arabic", "Hebrew", "an interpreter", "at Christmas", "for Eid", "Passover", "her pastor", "the rabbi", "an imam", "Air Force", "National Guard",
+      "daycare", "a stroller", "her hubby", "domestic violence", "a restraining order", "was homeless", "a shelter", "autistic", "mental health"]) {
+      expect(redact(w).text, w).toContain(REDACTED);
+    }
+    const r = redact("José paid on time and Zoë kept it clean.", { knownNames: ["José Ruiz", "Zoë Park"] });
+    expect(r.text).not.toMatch(/Jos|Zo/);
+    expect(r.count).toBe(2);
+  });
+
+  it("SSNs with dots or dashes, and dates of birth in several shapes", () => {
+    for (const s of ["123.45.6789", "123–45–6789", "123 45 6789", "birthdate 1990-04-12", "12 April 1990", "April 12, 1990", "born in 1990 on April 12", "DOB: 04/12/1990"]) {
+      const r = redact(`Note: ${s} thanks`);
+      expect(r.text, s).not.toMatch(/1990|6789/);
+    }
+    expect(redact("Lease runs from March 1, 2025 to 02/28/2026.").text).toContain("2025");
+  });
+
+  it("offline scoring needs whole words: McLean, Stainton and a capitalized name don't count", async () => {
+    const { offlineAnalyzeReference } = await import("@/server/ai/offline");
+    const base = offlineAnalyzeReference({ redactedText: "The tenant lived here two years.", relationship: "LANDLORD" } as never);
+    const names = offlineAnalyzeReference({ redactedText: "The tenant lived at McLean Court near Stainton Road with Tidy Brooks for two years.", relationship: "LANDLORD" } as never);
+    expect([names.paymentReliability, names.propertyCare, names.leaseCompliance]).toEqual([base.paymentReliability, base.propertyCare, base.leaseCompliance]);
+  });
+
   it("catches multi-word protected phrases", () => {
     expect(redact("She has an emotional support animal and a Section 8 voucher.").text).not.toMatch(/support animal|section 8|voucher/i);
   });

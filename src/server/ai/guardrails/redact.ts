@@ -1,11 +1,29 @@
+import { SSN_SOURCE } from "@/lib/pii";
 import { PROTECTED_RE } from "./protectedTerms";
 
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const PHONE_RE = /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
 const TITLED_NAME_RE = /\b(?:Mr|Mrs|Ms|Miss|Dr)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?/g;
-/** SSNs in the usual shapes, and a date after "born"/"DOB". The platform must never keep either. */
-export const SSN_RE = /\b\d{3}[-\s]\d{2}[-\s]\d{4}\b|\b\d{9}\b/g;
-const DOB_RE = /\b(?:born(?:\s+on)?|dob|d\.o\.b\.?|date of birth|birthday)\b[:\s]*[\w/.,-]*(?:\s[\w/.,-]+){0,2}/gi;
+/** SSNs in the usual shapes, and dates of birth. The platform must never keep either. */
+export const SSN_RE = new RegExp(SSN_SOURCE, "g");
+const MONTH = String.raw`(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?`;
+/** A birth-year-looking year: 1900-2012. Lease and move dates are later than that. */
+const BIRTH_YEAR = String.raw`(?:19\d{2}|200\d|201[0-2])`;
+/**
+ * After a birth keyword, everything up to five tokens ("born in 1990 on April 12", "birthdate
+ * 1990-04-12"). On its own, a full date whose year looks like a birth year ("12 April 1990",
+ * "April 12, 1990", "04/12/1990", "1990-04-12").
+ */
+const DOB_RE = new RegExp(
+  [
+    String.raw`\b(?:born|dob|d\.o\.b\.?|date of birth|birth ?date|birthday)(?![\p{L}])[:\s]*[\p{L}\p{N}/.,\u2013-]*(?:\s+[\p{L}\p{N}/.,\u2013-]+){0,4}`,
+    String.raw`\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?${MONTH},?\s+${BIRTH_YEAR}\b`,
+    String.raw`\b${MONTH}\s+\d{1,2}(?:st|nd|rd|th)?,?\s+${BIRTH_YEAR}\b`,
+    String.raw`\b\d{1,2}[/.\u2013-]\d{1,2}[/.\u2013-]${BIRTH_YEAR}\b`,
+    String.raw`\b${BIRTH_YEAR}[/.\u2013-]\d{1,2}[/.\u2013-]\d{1,2}\b`,
+  ].join("|"),
+  "giu",
+);
 /**
  * Words that describe the redacted thing ("her late husband", "an elderly mother") can carry
  * the protected trait on their own, or read as rental facts ("late"). They go with it.
@@ -37,7 +55,8 @@ export function redact(input: string, opts: { knownNames?: string[] } = {}): Red
   text = sub(TITLED_NAME_RE)(text);
   const names = (opts.knownNames ?? []).flatMap((n) => n.split(/\s+/)).filter((n) => n.length >= 2);
   if (names.length) {
-    const re = new RegExp(`\\b(?:${[...new Set(names)].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
+    // Unicode-aware edges, so "José" and "Zoë" match whole (\b is ASCII-only).
+    const re = new RegExp(`(?<![\\p{L}\\p{N}_])(?:${[...new Set(names)].map((n) => n.normalize("NFKC").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{N}_])`, "giu");
     text = sub(re)(text);
   }
   text = sub(PROTECTED_RE)(text);

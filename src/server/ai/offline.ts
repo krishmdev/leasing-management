@@ -5,15 +5,17 @@ import type { ReferenceAnalysis, ReferenceDTO, RationaleDTO, TriageDTO, TriageRe
  * redacted DTOs a model would, so the guardrails are exercised identically.
  */
 const POS = {
-  pay: [/on time/i, /never late/i, /always paid/i, /paid early/i, /reliable/i, /autopay/i],
-  care: [/clean/i, /spotless/i, /well[- ]kept/i, /took (good )?care/i, /great condition/i, /tidy/i],
-  comply: [/no (issues|complaints|problems)/i, /respectful/i, /quiet/i, /followed the lease/i, /great tenant/i, /recommend/i, /pleasure/i],
+  // Word boundaries throughout, so names like McLean or Stainton don't count. "clean" and "tidy"
+  // are matched in lower case only so a capitalized name ("Tidy Brooks") isn't read as praise.
+  pay: [/\bon time\b/i, /\bnever late\b/i, /\balways paid\b/i, /\bpaid early\b/i, /\breliabl[ey]\b/i, /\bautopay\b/i],
+  care: [/\bclean(?:ed|ing|ly)?\b/, /\bspotless\b/i, /\bwell[- ]kept\b/i, /\btook (?:good )?care\b/i, /\bgreat condition\b/i, /\btidy\b/],
+  comply: [/\bno (?:issues|complaints|problems)\b/i, /\brespectful\b/i, /\bquiet\b/i, /\bfollowed the lease\b/i, /\bgreat tenant\b/i, /\brecommend(?:ed)?\b/i, /\bpleasure\b/i],
 };
 const NEG = {
   // Rental lateness specifically, so "late" in other senses can't cost points.
-  pay: [/\b(?:paid|pays|paying|was|were|often|sometimes|always) late\b/i, /\blate (?:rent|payments?|fees?|with (?:the )?rent)\b/i, /behind on rent/i, /bounced/i, /unpaid/i, /owed/i, /payment plan/i],
-  care: [/damage/i, /\bmess\b/i, /dirty/i, /repairs? (were|was) needed/i, /holes? in/i, /stain/i],
-  comply: [/complaints?/i, /noise/i, /unauthori[sz]ed/i, /violation/i, /warning/i, /notice to/i, /eviction/i, /smok(ing|ed)/i],
+  pay: [/\b(?:paid|pays|paying|was|were|often|sometimes|always) late\b/i, /\blate (?:rent|payments?|fees?|with (?:the )?rent)\b/i, /\bbehind on rent\b/i, /\bbounced\b/i, /\bunpaid\b/i, /\bowed\b/i, /\bpayment plan\b/i],
+  care: [/\bdamage[ds]?\b/i, /\bmess(?:y)?\b/i, /\bdirty\b/i, /\brepairs? (?:were|was) needed\b/i, /\bholes? in\b/i, /\bstain(?:s|ed)?\b/i],
+  comply: [/\bcomplaints?\b/i, /\bnoise\b/i, /\bunauthori[sz]ed\b/i, /\bviolations?\b/i, /\bwarnings?\b/i, /\bnotice to\b/i, /\beviction\b/i, /\bsmok(?:ing|ed)\b/i],
 };
 
 const count = (text: string, res: RegExp[]) => res.reduce((n, re) => n + (re.test(text) ? 1 : 0), 0);
@@ -24,11 +26,11 @@ export function offlineAnalyzeReference(dto: ReferenceDTO): ReferenceAnalysis {
   const dims = (["pay", "care", "comply"] as const).map((k) => clamp(3 + count(t, POS[k]) - 1.5 * count(t, NEG[k])));
   const redFlags: ReferenceAnalysis["redFlags"] = [];
   if (NEG.pay.slice(0, 4).some((re) => re.test(t))) redFlags.push("LATE_PAYMENTS");
-  if (/damage|holes? in/i.test(t)) redFlags.push("PROPERTY_DAMAGE");
-  if (/violation|unauthori[sz]ed/i.test(t)) redFlags.push("LEASE_VIOLATION");
-  if (/noise|complaints?/i.test(t)) redFlags.push("NOISE_COMPLAINTS");
-  if (/unpaid|owed/i.test(t)) redFlags.push("UNPAID_BALANCE");
-  if (/eviction|notice to (pay|quit|vacate)/i.test(t)) redFlags.push("EVICTION_NOTICE");
+  if (/\bdamage[ds]?\b|\bholes? in\b/i.test(t)) redFlags.push("PROPERTY_DAMAGE");
+  if (/\bviolations?\b|\bunauthori[sz]ed\b/i.test(t)) redFlags.push("LEASE_VIOLATION");
+  if (/\bnoise\b|\bcomplaints?\b/i.test(t)) redFlags.push("NOISE_COMPLAINTS");
+  if (/\bunpaid\b|\bowed\b/i.test(t)) redFlags.push("UNPAID_BALANCE");
+  if (/\beviction\b|\bnotice to (?:pay|quit|vacate)\b/i.test(t)) redFlags.push("EVICTION_NOTICE");
   const quotes = t
     .split(/(?<=[.!?])\s+/)
     .filter((s) => [...POS.pay, ...POS.care, ...POS.comply, ...NEG.pay, ...NEG.care, ...NEG.comply].some((re) => re.test(s)))
