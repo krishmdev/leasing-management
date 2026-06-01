@@ -239,8 +239,9 @@ enum OpportunityStage {
 model Lead {
   id            String        @id
   agencyId      String
-  nameEnc       String
-  emailEnc      String
+  /// null once purged under the retention policy
+  nameEnc       String?
+  emailEnc      String?
   emailBidx     String
   phoneEnc      String?
   source        String        @default("website")
@@ -581,7 +582,8 @@ model ScreeningResult {
   scoreModel                  String?
   scoreRangeMin               Int?
   scoreRangeMax               Int?
-  keyFactors                  String[]
+  /// JSON array of the provider's key factors, encrypted like the score
+  keyFactorsEnc               String?
   scoreDate                   DateTime?        @db.Date
   evictionJudgmentsInLookback Int
   collectionsNonMedicalCount  Int
@@ -745,7 +747,10 @@ model AdverseActionNotice {
   application   Application @relation(fields: [agencyId, applicationId], references: [agencyId, id], onDelete: Restrict)
   reasonCodes   Json
   basis         String[]
+  /// CRA name/address, kind, conditions. No credit values: those are in craScoreEnc.
   craSnapshot   Json
+  /// Encrypted JSON {value, model, range, keyFactors, date}; nulled by the credit purge
+  craScoreEnc   String?
   documentId    String?
   sentAt        DateTime?   @db.Timestamptz(3)
   createdAt     DateTime    @default(now()) @db.Timestamptz(3)
@@ -815,6 +820,8 @@ model GeneratedDocument {
   storageKey      String
   sha256          String
   bytes           Int
+  /// File deleted under the retention policy; the row and sha256 stay as a record
+  purgedAt        DateTime?    @db.Timestamptz(3)
   createdAt       DateTime     @default(now()) @db.Timestamptz(3)
 
   @@index([agencyId, applicationId])

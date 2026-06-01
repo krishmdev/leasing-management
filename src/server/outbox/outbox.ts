@@ -129,12 +129,14 @@ export async function dispatchRow(row: OutboxRow, deps: DispatchDeps): Promise<D
     }
     const { providerMessageId } = await t.send(msg, { idempotencyKey: row.idempotencyKey });
     faults.hit("outbox:after-send");
-    await markDone(row, t.id, providerMessageId);
     const p = row.payload as EmailPayload;
-    if (p.template === "application.adverse_action") {
-      // The FCRA notice counts as sent when its email is accepted, not when it was queued.
-      await db().adverseActionNotice.updateMany({ where: { applicationId: String(p.params.applicationId), sentAt: null }, data: { sentAt: new Date() } });
-    }
+    await db().$transaction(async (tx) => {
+      await markDone(row, t.id, providerMessageId, tx);
+      if (p.template === "application.adverse_action") {
+        // The FCRA notice counts as sent when its email is accepted, not when it was queued.
+        await tx.adverseActionNotice.updateMany({ where: { applicationId: String(p.params.applicationId), sentAt: null }, data: { sentAt: new Date() } });
+      }
+    });
     return "done";
   } catch (e) {
     if (e instanceof SimulatedCrash) throw e;
@@ -164,8 +166,8 @@ async function needsReview(row: OutboxRow, reason: string): Promise<DispatchOutc
 }
 
 /** Conditional on the attempt number: a worker whose lease ran out and was superseded can't mark done. */
-async function markDone(row: OutboxRow, transport: string | null, providerMessageId: string | null) {
-  await db().outboxMessage.updateMany({
+async function markDone(row: OutboxRow, transport: string | null, providerMessageId: string | null, client: Pick<ReturnType<typeof db>, "outboxMessage"> = db()) {
+  await client.outboxMessage.updateMany({
     where: { id: row.id, status: "SENDING", attempts: row.attempts },
     data: { status: "DONE", doneAt: new Date(), leaseUntil: null, transport, providerMessageId, error: null },
   });

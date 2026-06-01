@@ -1,209 +1,51 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { uuidv7 } from "@/lib/ids";
-import { buildAdverseNoticeSnapshot, generateAdverseActionNotice } from "@/server/domain/screening/adverse";
+import { buildAdverseNotice } from "@/server/domain/screening/adverse";
 import { AdverseActionDoc, type AdverseData } from "@/worker/documents/templates";
 import { REASONS } from "@/server/domain/screening/rubric";
-import type { TenantTx } from "@/server/tenant";
-import { encryptField } from "@/server/crypto/fieldEncryption";
 
-describe("FCRA Adverse Notice Snapshot Builder", () => {
-  it("builds declined applicant notice payload with numeric score, key factors, and credit band", () => {
-    const reasons = [REASONS.credit, REASONS.income];
-    const snapshot = buildAdverseNoticeSnapshot({
-      kind: "DECLINE",
-      reasons,
-      result: {
-        creditBand: "POOR",
-        creditScore: 548,
-        scoreModel: "VantageScore 4.0 (simulated)",
-        scoreRangeMin: 300,
-        scoreRangeMax: 850,
-        keyFactors: ["Delinquent accounts", "High utilization", "Collection accounts", "Recent late payments"],
-        scoreDate: new Date("2026-05-20T00:00:00Z"),
-      },
-    });
+const report = (over: object = {}) => ({
+  creditBand: "POOR", creditScore: 548, scoreModel: "VantageScore 4.0 (simulated)", scoreRangeMin: 300, scoreRangeMax: 850,
+  keyFactors: ["Delinquent accounts", "High utilization", "Collection accounts", "Recent late payments", "Fifth factor"], scoreDate: new Date("2026-05-20T00:00:00Z"),
+  ...over,
+});
 
-    expect(snapshot.kind).toBe("DECLINE");
-    expect(snapshot.usedCra).toBe(true);
-    expect(snapshot.cra).toMatchObject({
-      name: expect.any(String),
-      address: expect.any(String),
-      phone: expect.any(String),
-      website: expect.any(String),
-    });
-    expect(snapshot.score).toEqual({
-      value: 548,
-      band: "POOR",
-      model: "VantageScore 4.0 (simulated)",
-      range: [300, 850],
-      keyFactors: ["Delinquent accounts", "High utilization", "Collection accounts", "Recent late payments"],
-      date: "2026-05-20T00:00:00.000Z",
-    });
-    expect(snapshot.conditions).toEqual([]);
+describe("adverse-action notice content", () => {
+  it("a decline with a report discloses the CRA, and the credit values go only in the separate score block", () => {
+    const { snapshot, score } = buildAdverseNotice({ kind: "DECLINE", reasons: [REASONS.credit, REASONS.income], report: report() });
+    expect(snapshot).toMatchObject({ kind: "DECLINE", usedCra: true, hasScore: true, conditions: [] });
+    expect(snapshot.cra.name).toBeTruthy();
+    // the plain snapshot carries nothing from the report
+    expect(JSON.stringify(snapshot)).not.toMatch(/548|Delinquent|VantageScore|2026-05-20/);
+    expect(score).toEqual({ value: 548, band: "POOR", model: "VantageScore 4.0 (simulated)", range: [300, 850], keyFactors: ["Delinquent accounts", "High utilization", "Collection accounts", "Recent late payments"], date: "2026-05-20" });
   });
 
-  it("builds thin-file applicant notice payload with THIN_FILE band and null numeric score", () => {
-    const reasons = [REASONS.credit];
-    const snapshot = buildAdverseNoticeSnapshot({
-      kind: "DECLINE",
-      reasons,
-      result: {
-        creditBand: "THIN_FILE",
-        creditScore: null,
-        scoreModel: null,
-        scoreRangeMin: null,
-        scoreRangeMax: null,
-        keyFactors: [],
-        scoreDate: new Date("2026-05-22T08:00:00Z"),
-      },
-    });
-
-    expect(snapshot.kind).toBe("DECLINE");
-    expect(snapshot.usedCra).toBe(true);
-    expect(snapshot.score).toEqual({
-      value: null,
-      band: "THIN_FILE",
-      model: null,
-      range: [null, null],
-      keyFactors: [],
-      date: "2026-05-22T08:00:00.000Z",
-    });
-    expect(snapshot.conditions).toEqual([]);
+  it("a thin file has a band and no score", () => {
+    const { score } = buildAdverseNotice({ kind: "DECLINE", reasons: [REASONS.credit], report: report({ creditBand: "THIN_FILE", creditScore: null, scoreModel: null, scoreRangeMin: null, scoreRangeMax: null, keyFactors: [] }) });
+    expect(score).toMatchObject({ value: null, band: "THIN_FILE", keyFactors: [] });
   });
 
-  it("builds conditional approval notice payload with conditions and credit score disclosure", () => {
-    const reasons = [REASONS.credit];
-    const conditions = [
-      "Qualified guarantor with monthly income of at least 4x monthly rent",
-      "Additional deposit subject to California AB 12 1-month cap",
-    ];
-
-    const snapshot = buildAdverseNoticeSnapshot({
-      kind: "CONDITIONAL",
-      reasons,
-      conditions,
-      result: {
-        creditBand: "FAIR",
-        creditScore: 641,
-        scoreModel: "VantageScore 4.0 (simulated)",
-        scoreRangeMin: 300,
-        scoreRangeMax: 850,
-        keyFactors: ["Collection account", "High utilization"],
-        scoreDate: new Date("2026-05-24T12:00:00Z"),
-      },
-    });
-
-    expect(snapshot.kind).toBe("CONDITIONAL");
-    expect(snapshot.usedCra).toBe(true);
-    expect(snapshot.conditions).toEqual(conditions);
-    expect(snapshot.score).toEqual({
-      value: 641,
-      band: "FAIR",
-      model: "VantageScore 4.0 (simulated)",
-      range: [300, 850],
-      keyFactors: ["Collection account", "High utilization"],
-      date: "2026-05-24T12:00:00.000Z",
-    });
+  it("a conditional approval lists its conditions", () => {
+    const conditions = ["Qualified guarantor with income of at least 4x the monthly rent"];
+    const { snapshot } = buildAdverseNotice({ kind: "CONDITIONAL", reasons: [REASONS.credit], conditions, report: report() });
+    expect(snapshot).toMatchObject({ kind: "CONDITIONAL", conditions });
   });
 
-  it("builds non-CRA decline notice without CRA score block when no CRA was used", () => {
-    const reasons = [REASONS.income];
-    const snapshot = buildAdverseNoticeSnapshot({
-      kind: "DECLINE",
-      reasons,
-      result: null,
-    });
+  it("an income-only decline doesn't claim to rest on the report, even when one exists", () => {
+    const { snapshot, score } = buildAdverseNotice({ kind: "DECLINE", reasons: [REASONS.income], report: report() });
+    expect(snapshot).toMatchObject({ usedCra: false, hasScore: false });
+    expect(score).toBeNull();
+  });
 
-    expect(snapshot.kind).toBe("DECLINE");
-    expect(snapshot.usedCra).toBe(false);
-    expect(snapshot.score).toBeNull();
-    expect(snapshot.conditions).toEqual([]);
+  it("with no report and no CRA reason there is no CRA block", () => {
+    const { snapshot, score } = buildAdverseNotice({ kind: "DECLINE", reasons: [REASONS.income], report: null });
+    expect(snapshot).toMatchObject({ usedCra: false, hasScore: false });
+    expect(score).toBeNull();
   });
 });
 
-describe("generateAdverseActionNotice domain service", () => {
-  it("persists the notice (sentAt left for the email dispatcher) and enqueues document and email", async () => {
-    const agencyId = uuidv7();
-    const applicationId = uuidv7();
-    const srResultId = uuidv7();
-    const encryptedScore = encryptField(
-      { agencyId, model: "ScreeningResult", id: srResultId, field: "creditScoreEnc" },
-      "548",
-    );
-
-    const mockCreateManyNotice = vi.fn().mockResolvedValue({ count: 1 });
-    const mockCreateManyOutbox = vi.fn().mockResolvedValue({ count: 1 });
-
-    const mockTx = {
-      screeningRequest: {
-        findFirst: vi.fn().mockResolvedValue({
-          provider: "mock",
-          result: {
-            id: srResultId,
-            creditBand: "POOR",
-            creditScoreEnc: encryptedScore,
-            scoreModel: "VantageScore 4.0",
-            scoreRangeMin: 300,
-            scoreRangeMax: 850,
-            keyFactors: ["Delinquent accounts"],
-            scoreDate: new Date("2026-05-20T00:00:00Z"),
-          },
-        }),
-      },
-      adverseActionNotice: {
-        createMany: mockCreateManyNotice,
-      },
-      application: {
-        findUniqueOrThrow: vi.fn().mockResolvedValue({
-          id: applicationId,
-          leadId: "lead_test_789",
-        }),
-      },
-      outboxMessage: {
-        createMany: mockCreateManyOutbox,
-      },
-    } as unknown as TenantTx;
-
-    const snapshot = await generateAdverseActionNotice(
-      mockTx,
-      agencyId,
-      applicationId,
-      [REASONS.credit],
-      "DECLINE",
-    );
-
-    expect(snapshot.kind).toBe("DECLINE");
-    expect(snapshot.usedCra).toBe(true);
-    expect(snapshot.score?.value).toBe(548);
-    expect(snapshot.score?.band).toBe("POOR");
-
-    // sentAt is set by the outbox dispatcher once the email is accepted
-    expect(mockCreateManyNotice).toHaveBeenCalledTimes(1);
-    const noticePayload = mockCreateManyNotice.mock.calls[0][0].data[0];
-    expect(noticePayload.agencyId).toBe(agencyId);
-    expect(noticePayload.applicationId).toBe(applicationId);
-    expect(noticePayload.sentAt).toBeUndefined();
-    expect(noticePayload.craSnapshot).toMatchObject({
-      kind: "DECLINE",
-      usedCra: true,
-      score: { value: 548, band: "POOR" },
-    });
-
-    // Verify outboxMessage enqueued document and email
-    expect(mockCreateManyOutbox).toHaveBeenCalledTimes(2);
-    const docOutbox = mockCreateManyOutbox.mock.calls[0][0].data[0];
-    expect(docOutbox.kind).toBe("DOCUMENT");
-    expect(docOutbox.idempotencyKey).toBe(`doc:${applicationId}:ADVERSE_ACTION:adverseAction.v1`);
-
-    const mailOutbox = mockCreateManyOutbox.mock.calls[1][0].data[0];
-    expect(mailOutbox.kind).toBe("EMAIL");
-    expect(mailOutbox.idempotencyKey).toBe(`mail:app:${applicationId}:adverse-action`);
-  });
-});
-
-describe("React-PDF Notice Rendering (Zero Network Egress)", () => {
+describe("adverse-action PDF", () => {
   const baseMeta = {
     title: "Notice of adverse action",
     agencyName: "Bayview Properties",

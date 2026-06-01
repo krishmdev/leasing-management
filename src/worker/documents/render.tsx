@@ -6,6 +6,7 @@ import type { DocumentPayload, OutboxRow } from "@/server/outbox/outbox";
 import { decryptApplication } from "@/server/domain/applications/service";
 import { dayLabel, usd } from "@/lib/format";
 import { AdverseActionDoc, LeaseDoc, SummaryDoc, type Meta } from "./templates";
+import { noticeScore, type AdverseNoticeSnapshot } from "@/server/domain/screening/adverse";
 
 export const docStorageKey = (agencyId: string, idempotencyKey: string) => `agencies/${agencyId}/documents/${sha256Hex(idempotencyKey).slice(0, 40)}.pdf`;
 
@@ -58,20 +59,8 @@ export async function renderDocument(row: OutboxRow & { payload: DocumentPayload
     );
   } else {
     const n = await t.adverseActionNotice.findUniqueOrThrow({ where: { applicationId: app.id } });
-    const snap = n.craSnapshot as unknown as {
-      kind?: "DECLINE" | "CONDITIONAL";
-      cra: { name: string; address: string; phone: string; website: string };
-      usedCra: boolean;
-      score: {
-        value: number | null;
-        band?: string;
-        model: string | null;
-        range: (number | null)[];
-        keyFactors: string[];
-        date: string | null;
-      } | null;
-      conditions?: string[];
-    };
+    const snap = n.craSnapshot as unknown as AdverseNoticeSnapshot;
+    const score = noticeScore(n);
     const reasons = n.reasonCodes as unknown as { text: string; basis: string }[];
     const isConditional = snap.kind === "CONDITIONAL";
     el = (
@@ -84,12 +73,7 @@ export async function renderDocument(row: OutboxRow & { payload: DocumentPayload
           reasons,
           conditions: snap.conditions ?? [],
           cra: snap.usedCra ? snap.cra : null,
-          score: snap.score
-            ? {
-                ...snap.score,
-                date: snap.score.date ? String(snap.score.date).slice(0, 10) : null,
-              }
-            : null,
+          score,
           thirdParty: reasons.some((r) => r.basis === "THIRD_PARTY"),
         }}
       />

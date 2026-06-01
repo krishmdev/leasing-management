@@ -63,7 +63,7 @@ export async function runEvaluation(j: JobCtx) {
         data: {
           id, agencyId: j.agencyId, screeningRequestId: sr.id, creditBand: s.creditBand,
           creditScoreEnc: encOpt({ agencyId: j.agencyId, model: "ScreeningResult", id, field: "creditScoreEnc" }, s.creditScore?.toString()),
-          scoreModel: s.scoreModel, scoreRangeMin: s.scoreRange?.[0] ?? null, scoreRangeMax: s.scoreRange?.[1] ?? null, keyFactors: s.keyFactors,
+          scoreModel: s.scoreModel, scoreRangeMin: s.scoreRange?.[0] ?? null, scoreRangeMax: s.scoreRange?.[1] ?? null, keyFactorsEnc: encOpt({ agencyId: j.agencyId, model: "ScreeningResult", id, field: "keyFactorsEnc" }, s.keyFactors.length ? JSON.stringify(s.keyFactors) : null),
           scoreDate: s.scoreDate ? new Date(s.scoreDate) : null, evictionJudgmentsInLookback: s.evictionJudgmentsInLookback,
           collectionsNonMedicalCount: s.collectionsNonMedicalCount, collectionsNonMedicalCents: s.collectionsNonMedicalCents,
           identityVerified: s.identityVerified, incomeVerified: s.incomeVerified, craDisclosure: { ...screeningProvider(sr.provider).craDisclosure() },
@@ -71,10 +71,14 @@ export async function runEvaluation(j: JobCtx) {
       });
       await tx.screeningRequest.update({ where: { id: sr.id }, data: { providerReportId: s.reportId } });
     });
-    // The score itself stays out of the step output (it's encrypted on ScreeningResult).
-    const { creditScore: _omit, ...rest } = s;
-    void _omit;
-    return { output: rest as Omit<DerivedScreeningSummary, "creditScore">, summary: { creditBand: s.creditBand, evictions: s.evictionJudgmentsInLookback, collections: s.collectionsNonMedicalCount } };
+    // Only what the rubric needs goes into the step output. The score and its factors, model,
+    // range and date live encrypted on ScreeningResult and are purged on the credit window.
+    const output = {
+      reportId: s.reportId, creditBand: s.creditBand, evictionJudgmentsInLookback: s.evictionJudgmentsInLookback,
+      collectionsNonMedicalCount: s.collectionsNonMedicalCount, collectionsNonMedicalCents: s.collectionsNonMedicalCents,
+      identityVerified: s.identityVerified, incomeVerified: s.incomeVerified,
+    } satisfies Partial<DerivedScreeningSummary>;
+    return { output, summary: { creditBand: s.creditBand, evictions: s.evictionJudgmentsInLookback, collections: s.collectionsNonMedicalCount } };
   }, opts);
 
   // 2. Score each reference's free text. Redaction happens before anything reaches the model.

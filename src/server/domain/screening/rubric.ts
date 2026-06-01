@@ -139,7 +139,7 @@ export function evaluateRubric(input: RubricInput, c: CriteriaConfig): RubricRes
   const outcome: RubricResult["outcome"] = escalate ? "NEEDS_REVIEW" : score >= c.thresholds.approve ? "APPROVE" : score >= c.thresholds.conditional ? "CONDITIONAL" : "DECLINE";
   const conditions =
     outcome === "CONDITIONAL"
-      ? ["Qualified guarantor with income of at least 4x the monthly rent", "Any added deposit must stay within the California AB 12 cap (one month's rent for most landlords)"]
+      ? ["Qualified guarantor with income of at least 4x the monthly rent", "Any added deposit must stay within the California AB 12 cap (one month's rent for most landlords; verify with counsel)"]
       : [];
   const reasonCodes = breakdown
     .map((f) => ({ ...REASONS[f.factor], factor: f.factor, pointsLost: r1(f.max - f.points) }))

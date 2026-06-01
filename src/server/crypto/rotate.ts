@@ -9,13 +9,14 @@ export const ENCRYPTED_FIELDS: Record<string, string[]> = {
   Application: ["legalNameEnc", "phoneEnc"],
   ResidenceHistory: ["addressEnc", "landlordNameEnc", "landlordEmailEnc", "landlordPhoneEnc"],
   ReferenceResponse: ["freeTextEnc"],
-  ScreeningResult: ["creditScoreEnc"],
+  ScreeningResult: ["creditScoreEnc", "keyFactorsEnc"],
+  AdverseActionNotice: ["craScoreEnc"],
   LlmCall: ["redactedInputEnc"],
 };
 
 type Delegate = {
   findMany(a: object): Promise<Record<string, unknown>[]>;
-  update(a: object): Promise<unknown>;
+  updateMany(a: object): Promise<unknown>;
 };
 
 /**
@@ -49,7 +50,8 @@ export async function rotateAll(opts: { dryRun: boolean; batch?: number }) {
         }
         if (Object.keys(data).length) {
           changed++;
-          if (!opts.dryRun) await delegate.update({ where: { id: r.id }, data });
+          // Only if nothing re-encrypted or purged the row meanwhile.
+          if (!opts.dryRun) await (delegate as unknown as { updateMany(a: object): Promise<unknown> }).updateMany({ where: { id: r.id, ...Object.fromEntries(Object.keys(data).map((c) => [c, r[c]])) }, data });
         }
       }
       cursor = String(rows.at(-1)!.id);

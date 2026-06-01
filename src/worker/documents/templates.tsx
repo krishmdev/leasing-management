@@ -204,12 +204,10 @@ export function AdverseActionDoc({ d }: { d: AdverseData }) {
                       ["Range", d.score.range && d.score.range[0] != null ? `${d.score.range[0]} to ${d.score.range[1]}` : "N/A"],
                       ["Model", d.score.model ?? "N/A"],
                       ["Date", d.score.date ?? "N/A"],
-                      ["Key factors", d.score.keyFactors.length > 0 ? d.score.keyFactors.join("; ") : "Insufficient credit history / lack of tradelines"],
+                      ["Key factors", d.score.keyFactors.length > 0 ? d.score.keyFactors.join("; ") : "None reported"],
                     ]}
                   />
-                  <Text style={[s.p, { marginTop: 6 }]}>
-                    Thin file notice: A numeric credit score was not available because of insufficient credit history or lack of credit file on record with the consumer reporting agency.
-                  </Text>
+                  <Text style={[s.p, { marginTop: 6 }]}>No numeric credit score was available from the consumer reporting agency.</Text>
                 </View>
               )}
             </View>
@@ -217,22 +215,15 @@ export function AdverseActionDoc({ d }: { d: AdverseData }) {
 
           <View style={{ marginTop: 8 }}>
             <Text style={s.h2}>Your rights</Text>
-            <Text style={s.p}>
-              • FCRA § 612 (Free consumer report): You have the right to obtain a free copy of your consumer report from the consumer reporting agency identified above, provided your request is made within 60 days after receiving this notice.
-            </Text>
-            <Text style={s.p}>
-              • FCRA § 611 (Dispute accuracy and completeness): You have the right to dispute the accuracy or completeness of any information in the consumer report directly with the consumer reporting agency. The agency must investigate your dispute free of charge.
-            </Text>
-            <Text style={s.p}>
-              • California CCRAA disclosure (Cal. Civ. Code § 1785.20): Under the California Consumer Credit Reporting Agencies Act, whenever an adverse action is taken based in whole or in part on a credit report, you have the right to receive written notice of the action and the agency&apos;s contact details. You have the right to obtain a free copy of your report within 60 days and dispute incomplete or inaccurate information.
-            </Text>
+            <Text style={s.p}>• You may get a free copy of your report from the consumer reporting agency above if you ask within 60 days (FCRA § 612).</Text>
+            <Text style={s.p}>• You may dispute the accuracy or completeness of anything in the report with the consumer reporting agency (FCRA § 611).</Text>
           </View>
         </View>
       )}
 
       {d.thirdParty && (
         <View style={s.box}>
-          <Text style={s.h2}>Information from other sources (FCRA § 615(b))</Text>
+          <Text style={s.h2}>Information from other sources (courtesy disclosure modeled on FCRA § 615(b); verify with counsel)</Text>
           <Text style={s.p}>Our decision was based in whole or in part on information from a source other than a consumer reporting agency (prior landlord references). You may ask us in writing, within 60 days of this notice, for the nature of that information.</Text>
         </View>
       )}

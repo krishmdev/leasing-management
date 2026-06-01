@@ -17,7 +17,7 @@ export default async function Status({ params }: { params: Promise<{ agencySlug:
   const agency = await publicAgency(agencySlug);
   if (!agency) notFound();
   const t = tenantDb(agency.id);
-  const app = await t.application.findUnique({ where: { id: applicationId }, include: { unit: { include: { property: true } }, references: true, screeningRequests: true, lease: true, hold: true, documents: true } });
+  const app = await t.application.findUnique({ where: { id: applicationId }, include: { unit: { include: { property: true } }, references: true, screeningRequests: true, lease: true, hold: true, documents: true, adverseAction: true } });
   if (!app || app.userId !== session.user.id) notFound();
   if (app.status === "DRAFT") redirect(`/${agencySlug}/apply/${applicationId}/${app.currentStep}`);
   const sr = app.screeningRequests[0];
@@ -33,7 +33,7 @@ export default async function Status({ params }: { params: Promise<{ agencySlug:
           <>The screening company is waiting for you. <a className="font-medium text-brand underline" href={sr.hostedUrl}>Open the secure screening page</a> (your SSN goes there, not to us).</>
         ) : "We're setting up your screening. You'll get an email from the screening company shortly.",
     },
-    { title: "Landlord references", state: refsDone === app.references.length ? "done" : "current", body: app.references.length ? `${refsDone} of ${app.references.length} in` : "None requested" },
+    { title: "Landlord references", state: refsDone === app.references.length ? "done" : "current", body: app.references.length ? `${refsDone} of ${app.references.length} received` : "None requested" },
     {
       title: "Decision",
       state: decided ? "done" : app.status === "WITHDRAWN" ? "todo" : "current",
@@ -72,7 +72,7 @@ export default async function Status({ params }: { params: Promise<{ agencySlug:
           {notice && (
             <li>
               <a className="font-medium text-brand underline" href={`/api/documents/${notice.id}`}>
-                {app.status === "CONDITIONAL" ? "Conditional approval terms notice (PDF)" : "Adverse action notice (PDF)"}
+                {(app.adverseAction?.craSnapshot as { kind?: string } | null)?.kind === "CONDITIONAL" ? "Notice about the conditions on your approval (PDF)" : "Adverse action notice (PDF)"}
               </a>
             </li>
           )}

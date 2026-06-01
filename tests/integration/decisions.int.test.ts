@@ -82,12 +82,12 @@ describe("autonomous cap and pause, checked at execution time", () => {
     await expect(executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "AUTONOMOUS", decidedByType: "AGENT", reasonCodes: [] })).rejects.toThrow(/only a clean approval/);
   });
 
-  it("a staff decline must list reasons, and the notice carries the CRA block whenever a report exists", async () => {
+  it("a staff decline must list reasons, and a report-based reason brings the CRA block", async () => {
     const { agency, unit } = await agencyWith("MANUAL");
     const s = await pendingApproval(agency.id, unit.id);
     await evaluate(agency.id, s.applicationId);
     await expect(executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [], overrideReason: "x" })).rejects.toThrow(/at least one reason/);
-    await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS.find((r) => r.factor === "references")!], overrideReason: "reference concerns on a call" });
+    await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS.find((r) => r.factor === "credit")!], overrideReason: "credit concerns on review" });
     const n = await db().adverseActionNotice.findUniqueOrThrow({ where: { applicationId: s.applicationId } });
     expect(n.craSnapshot).toMatchObject({ kind: "DECLINE", usedCra: true, cra: { name: expect.any(String) } });
   });
