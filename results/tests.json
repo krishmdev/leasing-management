@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-06-01T08:49:09.759Z",
+  "commit": "c2b979b",
+  "unit": {
+    "passed": 104,
+    "failed": 0,
+    "suites": 38
+  },
+  "integration": {
+    "passed": 54,
+    "failed": 8,
+    "suites": 28
+  },
+  "e2e": {
+    "passed": 7,
+    "failed": 0,
+    "flaky": 0,
+    "offline": true
+  }
+}

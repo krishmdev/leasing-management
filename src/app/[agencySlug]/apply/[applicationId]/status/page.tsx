@@ -69,7 +69,13 @@ export default async function Status({ params }: { params: Promise<{ agencySlug:
       )}
       {(notice || signed) && (
         <ul className="mt-6 space-y-2 text-sm">
-          {notice && <li><a className="font-medium text-brand underline" href={`/api/documents/${notice.id}`}>Adverse action notice (PDF)</a></li>}
+          {notice && (
+            <li>
+              <a className="font-medium text-brand underline" href={`/api/documents/${notice.id}`}>
+                {app.status === "CONDITIONAL" ? "Conditional approval terms notice (PDF)" : "Adverse action notice (PDF)"}
+              </a>
+            </li>
+          )}
           {signed && <li><a className="font-medium text-brand underline" href={`/api/documents/${signed.id}`}>Signed lease with certificate (PDF)</a></li>}
         </ul>
       )}

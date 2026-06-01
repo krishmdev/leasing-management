@@ -132,40 +132,107 @@ export interface AdverseData {
   applicant: string;
   address: string;
   reasons: { text: string; basis: string }[];
+  conditions?: string[];
   cra: { name: string; address: string; phone: string; website: string } | null;
-  score: { value: number; model: string | null; range: (number | null)[]; keyFactors: string[]; date: string | null } | null;
+  score: {
+    value: number | null;
+    band?: string;
+    model: string | null;
+    range: (number | null)[];
+    keyFactors: string[];
+    date: string | null;
+  } | null;
   thirdParty: boolean;
 }
 
 export function AdverseActionDoc({ d }: { d: AdverseData }) {
+  const isConditional = d.kind === "CONDITIONAL";
   return (
     <Shell meta={d.meta}>
-      <Text style={s.h1}>Notice of adverse action</Text>
+      <Text style={s.h1}>{isConditional ? "Notice of conditional approval" : "Notice of adverse action"}</Text>
       <Text style={s.sub}>To {d.applicant} · re: {d.address}</Text>
       <Text style={s.p}>
-        {d.kind === "CONDITIONAL"
+        {isConditional
           ? "We approved your rental application on conditions (for example a qualified guarantor), which is less favorable than a standard approval. The principal reasons are:"
           : "We are unable to approve your rental application at this time. The principal reasons are:"}
       </Text>
       {d.reasons.map((r) => (
         <Text key={r.text} style={s.p}>• {r.text}</Text>
       ))}
+
+      {isConditional && d.conditions && d.conditions.length > 0 && (
+        <View style={s.box}>
+          <Text style={s.h2}>Required conditions</Text>
+          <Text style={s.p}>To complete your approval and execute a lease, the following terms and conditions must be satisfied:</Text>
+          {d.conditions.map((c, i) => (
+            <Text key={i} style={s.p}>• {c}</Text>
+          ))}
+        </View>
+      )}
+
       {d.cra && (
         <View style={s.box}>
-          <Text style={s.h2}>Consumer report (FCRA § 615(a))</Text>
+          <Text style={s.h2}>Consumer report disclosure (FCRA § 615(a))</Text>
           <Text style={s.p}>Our decision was based in whole or in part on information in a consumer report from:</Text>
           <Text>{d.cra.name}</Text>
           <Text>{d.cra.address}</Text>
           <Text>{d.cra.phone} · {d.cra.website}</Text>
-          <Text style={[s.p, { marginTop: 6 }]}>The consumer reporting agency did not make this decision and cannot explain why it was made. You have the right to a free copy of your report from them if you ask within 60 days, and the right to dispute the accuracy or completeness of anything in it.</Text>
+          <Text style={[s.p, { marginTop: 6 }]}>
+            The consumer reporting agency did not make this decision and cannot explain why it was made.
+          </Text>
+
           {d.score && (
-            <>
+            <View style={{ marginTop: 8 }}>
               <Text style={s.h2}>Credit score used</Text>
-              <KV rows={[["Score", String(d.score.value)], ["Range", `${d.score.range[0]} to ${d.score.range[1]}`], ["Model", d.score.model ?? ""], ["Date", d.score.date ?? ""], ["Key factors", d.score.keyFactors.join("; ")]]} />
-            </>
+              {d.score.value !== null ? (
+                <KV
+                  rows={[
+                    ["Score", String(d.score.value)],
+                    ["Credit band", d.score.band ?? "N/A"],
+                    ["Range", `${d.score.range[0]} to ${d.score.range[1]}`],
+                    ["Model", d.score.model ?? ""],
+                    ["Date", d.score.date ?? ""],
+                    ["Key factors", d.score.keyFactors.length > 0 ? d.score.keyFactors.join("; ") : "None reported"],
+                  ]}
+                />
+              ) : (
+                <View>
+                  <KV
+                    rows={[
+                      ["Credit band", d.score.band ?? "THIN_FILE"],
+                      ["Score", "No score available (thin file)"],
+                      ["Range", d.score.range && d.score.range[0] != null ? `${d.score.range[0]} to ${d.score.range[1]}` : "N/A"],
+                      ["Model", d.score.model ?? "N/A"],
+                      ["Date", d.score.date ?? "N/A"],
+                      ["Key factors", d.score.keyFactors.length > 0 ? d.score.keyFactors.join("; ") : "Insufficient credit history / lack of tradelines"],
+                    ]}
+                  />
+                  <Text style={[s.p, { marginTop: 6 }]}>
+                    Thin file notice: A numeric credit score was not available because of insufficient credit history or lack of credit file on record with the consumer reporting agency.
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
+
+          <View style={{ marginTop: 8 }}>
+            <Text style={s.h2}>Statutory dispute & consumer rights</Text>
+            <Text style={s.p}>
+              • FCRA § 612 (Free consumer report): You have the right to obtain a free copy of your consumer report from the consumer reporting agency identified above, provided your request is made within 60 days after receiving this notice.
+            </Text>
+            <Text style={s.p}>
+              • FCRA § 611 (Dispute accuracy and completeness): You have the right to dispute the accuracy or completeness of any information in the consumer report directly with the consumer reporting agency. The agency must investigate your dispute free of charge.
+            </Text>
+            <Text style={s.p}>
+              • FCRA § 605A (Right to obtain a security freeze): You have the right to place a security freeze on your consumer credit report at no cost. A security freeze prohibits a consumer reporting agency from releasing information in your credit report without your express authorization, helping protect against identity theft.
+            </Text>
+            <Text style={s.p}>
+              • California CCRAA disclosure (Cal. Civ. Code § 1785.20): Under the California Consumer Credit Reporting Agencies Act, whenever an adverse action is taken based in whole or in part on a credit report, you have the right to receive written notice of the action and the agency&apos;s contact details. You have the right to obtain a free copy of your report within 60 days and dispute incomplete or inaccurate information.
+            </Text>
+          </View>
         </View>
       )}
+
       {d.thirdParty && (
         <View style={s.box}>
           <Text style={s.h2}>Information from other sources (FCRA § 615(b))</Text>

@@ -21,11 +21,13 @@ export E2E_BASE_URL="$APP_URL"
 pnpm exec tsx scripts/reset-db.ts
 pnpm exec tsx prisma/seed/index.ts
 
+lsof -ti :"$E2E_PORT" | xargs kill -9 2>/dev/null || true
+
 pnpm exec next start -p "$E2E_PORT" > storage/e2e-web.log 2>&1 &
 WEB=$!
 pnpm exec tsx src/worker/index.ts > storage/e2e-worker.log 2>&1 &
 WORKER=$!
-trap 'kill $WEB $WORKER 2>/dev/null || true' EXIT INT TERM
+trap 'pkill -P $WEB 2>/dev/null || true; kill $WEB $WORKER 2>/dev/null || true; lsof -ti :"$E2E_PORT" | xargs kill 2>/dev/null || true' EXIT INT TERM
 
 i=0
 # Wait for the web server, and for both processes to have recorded their egress canary.

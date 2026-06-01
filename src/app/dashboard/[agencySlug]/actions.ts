@@ -92,6 +92,7 @@ export async function ticketStatusAction(slug: string, ticketId: string, to: Tic
     return { message: (e as Error).message };
   }
   revalidatePath(`${base(slug)}/maintenance/${ticketId}`);
+  revalidatePath(`${base(slug)}/maintenance`);
   return { ok: true, message: `Moved to ${to.toLowerCase().replace("_", " ")}.` };
 }
 
@@ -103,6 +104,7 @@ export async function assignTicketAction(slug: string, ticketId: string, _: Form
     return { message: (e as Error).message };
   }
   revalidatePath(`${base(slug)}/maintenance/${ticketId}`);
+  revalidatePath(`${base(slug)}/maintenance`);
   return { ok: true, message: "Assigned." };
 }
 

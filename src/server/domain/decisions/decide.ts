@@ -1,7 +1,6 @@
 import { TZDate } from "@date-fns/tz";
 import type { Prisma } from "@/generated/prisma/client";
-import { decryptField } from "@/server/crypto/fieldEncryption";
-import { enqueueDocument, enqueueEmail } from "@/server/outbox/outbox";
+import { enqueueEmail } from "@/server/outbox/outbox";
 import { audit } from "@/server/audit/audit";
 import { tenantDb, tenantRaw, type TenantTx } from "@/server/tenant";
 import { withTxRetry } from "@/server/txRetry";
@@ -9,7 +8,7 @@ import { faults } from "@/server/faults";
 import { advanceStage } from "@/server/domain/leads/service";
 import { AutomationConfig, mayAutoExecute } from "@/server/domain/agent/policy";
 import { lockApplication, lockSettings, lockUnit } from "@/server/domain/locks";
-import { screeningProvider } from "@/server/domain/screening/providers";
+import { generateAdverseActionNotice } from "@/server/domain/screening/adverse";
 import type { ReasonCode } from "@/server/domain/screening/rubric";
 import { placeHold } from "./holds";
 
@@ -110,11 +109,11 @@ export async function executeDecision(agencyId: string, applicationId: string, d
 
       let hold: string | undefined;
       if (d.outcome === "DECLINE") {
-        await adverseAction(tx, agencyId, applicationId, d.reasonCodes, "DECLINE");
+        await generateAdverseActionNotice(tx, agencyId, applicationId, d.reasonCodes, "DECLINE");
       } else {
         // Approval on less favorable terms (a guarantor) because of the report is an adverse
         // action under FCRA too, so a conditional approval gets a notice as well.
-        if (d.outcome === "CONDITIONAL") await adverseAction(tx, agencyId, applicationId, d.reasonCodes, "CONDITIONAL");
+        if (d.outcome === "CONDITIONAL") await generateAdverseActionNotice(tx, agencyId, applicationId, d.reasonCodes, "CONDITIONAL", d.conditions);
         const h = await placeHold(tx, agencyId, unit, applicationId, settings.holdHours);
         hold = h.status;
         await enqueueEmail(tx, agencyId, `mail:app:${applicationId}:decision:${d.outcome}`, {
@@ -134,25 +133,4 @@ export async function executeDecision(agencyId: string, applicationId: string, d
       return { status: "executed", outcome: d.outcome, hold } as const;
     }),
   );
-}
-
-async function adverseAction(tx: TenantTx, agencyId: string, applicationId: string, reasons: ReasonCode[], kind: "DECLINE" | "CONDITIONAL") {
-  const sr = await tx.screeningRequest.findFirst({ where: { applicationId }, include: { result: true } });
-  const r = sr?.result;
-  const score = r?.creditScoreEnc ? Number(decryptField({ agencyId, model: "ScreeningResult", id: r.id, field: "creditScoreEnc" }, r.creditScoreEnc)) : null;
-  // A report was obtained and considered, so the CRA disclosure goes in whenever one exists.
-  const usedCra = !!r || reasons.some((x) => x.basis === "CRA");
-  const craSnapshot = {
-    kind,
-    cra: screeningProvider(sr?.provider).craDisclosure(),
-    usedCra,
-    score: usedCra && score ? { value: score, model: r!.scoreModel, range: [r!.scoreRangeMin, r!.scoreRangeMax], keyFactors: r!.keyFactors.slice(0, 4), date: r!.scoreDate } : null,
-  };
-  await tx.adverseActionNotice.createMany({
-    data: [{ agencyId, applicationId, reasonCodes: reasons as unknown as Prisma.InputJsonArray, basis: [...new Set(reasons.map((x) => x.basis))], craSnapshot: JSON.parse(JSON.stringify(craSnapshot)) as Prisma.InputJsonObject }],
-    skipDuplicates: true,
-  });
-  await enqueueDocument(tx, agencyId, `doc:${applicationId}:ADVERSE_ACTION:adverseAction.v1`, { kind: "ADVERSE_ACTION", templateVersion: "adverseAction.v1", applicationId });
-  const app = await tx.application.findUniqueOrThrow({ where: { id: applicationId } });
-  await enqueueEmail(tx, agencyId, `mail:app:${applicationId}:adverse-action`, { template: "application.adverse_action", to: { kind: "lead", id: app.leadId }, params: { applicationId, kind } });
 }

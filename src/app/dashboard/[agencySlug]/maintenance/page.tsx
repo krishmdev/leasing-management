@@ -23,7 +23,7 @@ export default async function Maintenance({ params }: { params: Promise<{ agency
   const now = new Date(await requestTime());
   const tickets = await ctx.tdb.maintenanceTicket.findMany({
     where: { OR: [{ status: { notIn: ["CLOSED", "CANCELED", "RESOLVED"] } }, { status: "RESOLVED", resolvedAt: { gte: new Date(now.getTime() - 14 * 86_400_000) } }] },
-    include: { unit: { include: { property: true } } },
+    include: { unit: { include: { property: true } }, photos: true },
     orderBy: { createdAt: "asc" },
   });
   const staff = await ctx.tdb.member.findMany({ where: { organizationId: ctx.agencyId }, include: { user: true } });
@@ -66,6 +66,11 @@ export default async function Maintenance({ params }: { params: Promise<{ agency
                         <p className="mt-0.5 truncate text-2xs text-muted">{t.unit.property.name} {t.unit.label} · {human(t.category)}</p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <UrgencyBadge urgency={t.urgency} />
+                          {t.photos && t.photos.length > 0 && (
+                            <span className="inline-flex items-center gap-0.5 rounded bg-black/5 px-1.5 py-0.5 font-mono text-2xs font-medium text-ink-2" title={`${t.photos.length} photo${t.photos.length > 1 ? "s" : ""}`}>
+                              📷 {t.photos.length}
+                            </span>
+                          )}
                           {t.possibleAccommodationRequest && <Badge tone="info">accommodation?</Badge>}
                           {t.safetyRule && <Badge tone="bad">rule: {t.safetyRule}</Badge>}
                           <span className="ml-auto text-2xs text-muted">{t.assigneeUserId ? nameOf.get(t.assigneeUserId) : "unassigned"} · {relative(t.createdAt, now)}</span>
