@@ -16,8 +16,8 @@ export default async function Schedule({ params }: { params: Promise<{ agencySlu
   if (!agency || !unit) notFound();
   const slots = await availableSlots(agency.id, 21, new Date(await requestTime()));
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 px-5 pt-10 md:grid-cols-[1fr_340px]">
-      <div>
+    <div className="mx-auto grid max-w-5xl gap-8 px-5 pt-10 grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0">
         <h1 className="display text-4xl font-semibold">Schedule a showing</h1>
         <p className="mb-6 mt-2 text-ink-2">An agent meets you at the building. You&apos;ll get a calendar invite and a link to reschedule.</p>
         <ScheduleForm action={bookAction.bind(null, agencySlug, unitSlug)} slots={slots.map((s) => s.start.toISOString())} tz={agency.timezone} applyHref={`/${agencySlug}/apply?unit=${unitSlug}`} />

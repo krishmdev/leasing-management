@@ -29,8 +29,8 @@ export default async function LeasePage({ params }: { params: Promise<{ agencySl
           <div key={k}><dt className="text-xs text-muted">{k}</dt><dd className="display text-lg font-semibold">{v}</dd></div>
         ))}
       </dl>
-      <div className="mt-6 grid gap-6 md:grid-cols-[1fr_340px]">
-        <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
+      <div className="mt-6 grid gap-6 grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
           {doc ? (
             <iframe title="Lease document" src={`/api/documents/${doc.id}?t=${encodeURIComponent(token)}`} className="h-[70vh] w-full" />
           ) : (

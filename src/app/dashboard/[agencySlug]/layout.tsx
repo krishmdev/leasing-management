@@ -19,6 +19,7 @@ export default async function DeskLayout({ children, params }: { children: React
   const items = DESK_SECTIONS.filter((x) => can(ctx.role, x.perm)).map((x) => ({ href: `${base}${x.path}`, label: x.label, ...badges[x.path] }));
   return (
     <div className="min-h-dvh bg-paper text-[14px] text-ink">
+      <a href="#desk-main" className="sr-only z-50 rounded bg-surface px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Skip to content</a>
       <DeskNav
         items={items}
         agencies={memberships.map((m) => ({ slug: m.organization.slug, name: m.organization.name }))}
@@ -26,8 +27,8 @@ export default async function DeskLayout({ children, params }: { children: React
         user={{ name: ctx.userName, role: ctx.role }}
         signOut={signOut}
       />
-      <div className="md:pl-60">
-        <main className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">{children}</main>
+      <div className="min-w-0 md:pl-60">
+        <main id="desk-main" className="mx-auto min-w-0 max-w-[1400px] px-4 py-6 md:px-8">{children}</main>
       </div>
     </div>
   );

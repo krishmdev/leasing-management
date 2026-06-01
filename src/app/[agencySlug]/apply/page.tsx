@@ -15,8 +15,8 @@ export default async function Apply({ params, searchParams }: { params: Promise<
   if (!agency || !unit) notFound();
   const session = await getSession();
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 px-5 pt-10 md:grid-cols-[1fr_340px]">
-      <div>
+    <div className="mx-auto grid max-w-5xl gap-8 px-5 pt-10 grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0">
         <h1 className="display text-4xl font-semibold">Apply for this home</h1>
         <ol className="mt-4 space-y-1 text-ink-2">
           <li>1. About you, where you&apos;ve lived, and your income: about ten minutes. Answers save as you go.</li>

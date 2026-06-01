@@ -15,8 +15,8 @@ export default async function Interest({ params }: { params: Promise<{ agencySlu
   if (!agency || !unit) notFound();
   const today = new Date(await requestTime()).toISOString().slice(0, 10);
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 px-5 pt-10 md:grid-cols-[1fr_340px]">
-      <div>
+    <div className="mx-auto grid max-w-5xl gap-8 px-5 pt-10 grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0">
         <h1 className="display text-4xl font-semibold">Tell us you&apos;re interested</h1>
         <p className="mb-6 mt-2 text-ink-2">No account needed. A leasing agent follows up within a business day.</p>
         <InterestForm action={interestAction.bind(null, agencySlug, unitSlug)} minDate={today} applyHref={`/${agencySlug}/apply?unit=${unitSlug}`} />
