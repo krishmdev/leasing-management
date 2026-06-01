@@ -27,7 +27,7 @@ test("resident reports a gas smell: EMERGENCY by rule, staff assign it, resident
   await waitForMail(email, new RegExp(`Update: ${title}`));
 });
 
-test("resident submits repair ticket with an image attachment, staff assigns on maintenance board, status email delivery, and visual status update in portal", async ({ page, browser }) => {
+test("resident files a ticket with a photo; staff assign it; the portal and the email show the new status", async ({ page, browser }) => {
   const photoBuffer = await sharp({
     create: {
       width: 200,
