@@ -251,8 +251,9 @@ one rationale and three tickets. It found:
 - **Key rotation.** `pnpm pii:rotate` re-encrypts under the active key. Because the envelope
   names its key, the key id inside the AAD changes while the record binding stays the same.
   The blind-index key isn't rotatable yet.
-- **CI.** The Linux offline e2e job (app container on the compose network with no egress) is
-  written but hasn't run in GitHub Actions yet. It was only built locally.
+- **CI.** The workflow hasn't run in GitHub Actions yet. The Linux offline e2e job's container
+  (app, worker and browser on the compose network with no egress) was built and passed locally
+  under Docker Desktop.
 - **Seed data.** Dashboard metrics come from generated data. The funnel's time-in-stage is near
   zero because the seed creates prospects all at once.
 

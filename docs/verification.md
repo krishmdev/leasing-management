@@ -65,8 +65,10 @@ then asserts that neither value, formatted or not, appears in any request URL or
 browser sent. The page's SSN and DOB inputs have no `name` attribute, so they aren't form data.
 
 The Linux version of the offline run is `Dockerfile.e2e` plus the `e2e-offline` CI job: the app
-container is attached only to the compose network, which is `internal: true`. It was built and
-run locally; see the note at the end.
+container is attached only to the compose network, which is `internal: true`. On 2026-06-01
+that image was built and run locally under Docker Desktop (linux/arm64) with the same command
+as the CI job, and all Playwright tests passed, the canary reporting `blocked` in both
+processes.
 
 ## Live model run
 

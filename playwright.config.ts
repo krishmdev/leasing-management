@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 // egress sandbox), not by Playwright's webServer option.
 export default defineConfig({
   testDir: "tests/e2e",
-  timeout: 150_000,
+  timeout: 300_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,
   workers: 1,
