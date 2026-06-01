@@ -261,12 +261,14 @@ one rationale and three tickets. It found:
 ```bash
 make check                        # lint, typecheck, unit and integration tests
 make e2e                          # Playwright, unsandboxed (canary must connect)
-OFFLINE_RUN=<wrapper> make e2e-offline   # same suite with egress blocked for the whole stack
+make e2e-offline                  # same suite with egress blocked for the whole stack (macOS)
 pnpm pii:purge --dry-run          # preview the retention purge
 ```
 
-`next dev` writes agent instruction files when it detects certain environment variables. The
-`.git/info/exclude` file keeps them out of commits.
+On macOS, `make e2e-offline` wraps the web server, the worker and the browser in
+`scripts/offline-run`: a sandbox-exec profile (`scripts/offline.sb`) that denies outbound
+network except localhost. On Linux, CI runs the same suite in a container attached only to the
+compose network, which has no route out (`Dockerfile.e2e`).
 
 ## Credits
 
