@@ -80,6 +80,7 @@ async function call<T>(
       model,
       inputHash,
       redactedInputEnc: encryptField({ agencyId: meta.agencyId, model: "LlmCall", id, field: "redactedInputEnc" }, prompt.prompt),
+      // Kept whole so a cached replay can re-run the output guard; cleared by the 730-day purge.
       output: value as object,
       latencyMs: Date.now() - started,
       tokensIn: usage.inputTokens ?? null,
@@ -104,7 +105,10 @@ export async function analyzeReference(meta: Omit<CallMeta, "purpose" | "promptV
   }
   // Output guard: evidence quotes are shown to staff, so they get the same scan as inputs.
   const tripped = r.value.evidenceQuotes.some(mentionsProtected);
-  const value = tripped ? { ...r.value, evidenceQuotes: [] } : r.value;
+  // Quotes are verbatim reference text. They're used for the guard check above and then
+  // dropped, so they never reach step outputs or the reference row. Only the LlmCall log
+  // keeps them, and the retention purge clears that.
+  const value = { ...r.value, evidenceQuotes: [] };
   return { ...r, value, guardTripped: tripped, promptVersion: REFERENCE_PROMPT_VERSION, fallback: false };
 }
 

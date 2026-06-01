@@ -8,7 +8,7 @@ import { executeDecision } from "@/server/domain/decisions/decide";
 import { REASON_OPTIONS } from "@/server/domain/screening/rubric";
 import { renderDocument, docStorageKey } from "@/worker/documents/render";
 import { getObject } from "@/server/storage";
-import { resetDb, makeUser } from "../helpers/db";
+import { resetDb, makeUser, makeUnit } from "../helpers/db";
 import { agencyWith, answerReferences, completeScreening, evaluate, flushOutbox, mail, submittedApplication } from "../helpers/pipeline";
 
 beforeAll(async () => {
@@ -105,7 +105,9 @@ describe("documents", () => {
     await flushOutbox();
     const n = await db().adverseActionNotice.findUniqueOrThrow({ where: { applicationId: s.applicationId } });
     expect(n.basis).toEqual(expect.arrayContaining(["CRA", "APPLICANT_INFO"]));
-    expect(n.craSnapshot).toMatchObject({ usedCra: true, cra: { name: expect.stringContaining("MockCRA") }, score: { value: 548, range: [300, 850] } });
+    expect(n.craSnapshot).toMatchObject({ usedCra: true, hasScore: true, cra: { name: expect.stringContaining("MockCRA") } });
+    const { noticeScore } = await import("@/server/domain/screening/adverse");
+    expect(noticeScore(n)).toMatchObject({ value: 548, range: [300, 850] });
     const doc = await db().generatedDocument.findFirstOrThrow({ where: { applicationId: s.applicationId, kind: "ADVERSE_ACTION" } });
     expect(n.documentId).toBe(doc.id);
     expect(n.sentAt).toBeInstanceOf(Date);
@@ -129,7 +131,7 @@ describe("retention", () => {
     await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[0]] });
     const future = new Date(Date.now() + 800 * 86_400_000);
     const dry = await purgeExpired({ dryRun: true, now: future, agencyId: agency.id });
-    expect(dry[agency.id]).toMatchObject({ credit: 1, applicants: 1 });
+    expect(dry.perAgency[agency.id]).toMatchObject({ credit: 1, applicants: 1 });
     expect((await db().application.findUniqueOrThrow({ where: { id: s.applicationId } })).legalNameEnc).not.toBeNull();
     await purgeExpired({ dryRun: false, now: future, agencyId: agency.id });
     const app = await db().application.findUniqueOrThrow({ where: { id: s.applicationId } });
@@ -137,7 +139,7 @@ describe("retention", () => {
     expect(app.purgedAt).toBeTruthy();
     expect(await db().decision.count({ where: { applicationId: s.applicationId } })).toBe(1);
     const sr = await db().screeningRequest.findFirstOrThrow({ where: { applicationId: s.applicationId }, include: { result: true } });
-    expect(sr.result).toMatchObject({ creditScoreEnc: null, keyFactors: [] });
+    expect(sr.result).toMatchObject({ creditScoreEnc: null, keyFactorsEnc: null, scoreModel: null, scoreDate: null });
     expect(await db().user.findUnique({ where: { id: s.userId } })).toBeNull();
     expect(await db().auditLog.count({ where: { agencyId: agency.id, action: "pii.purged" } })).toBe(1);
   });
@@ -172,5 +174,80 @@ describe("retention across tenants", () => {
     await db().residency.create({ data: { agencyId: b.agency.id, unitId: b.unit.id, residentUserId: s.userId, moveIn: new Date("2026-01-01"), status: "CURRENT", rentCents: 1 } });
     await purgeExpired({ dryRun: false, now: future(), agencyId: a.agency.id });
     expect(await db().user.findUnique({ where: { id: s.userId } })).not.toBeNull();
+  });
+});
+
+describe("retention: credit data and documents", () => {
+  it("the notice keeps credit values only encrypted, and the credit purge removes them and the notice PDF", async () => {
+    const { agency, unit } = await agencyWith("MANUAL");
+    const s = await submittedApplication(agency.id, unit.id, { incomeCents: 540_000 });
+    await answerReferences(s.applicationId);
+    await completeScreening(agency.id, s.applicationId, "poor");
+    await evaluate(agency.id, s.applicationId);
+    await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS.find((r) => r.factor === "credit")!] });
+    await flushOutbox();
+    const n = await db().adverseActionNotice.findUniqueOrThrow({ where: { applicationId: s.applicationId } });
+    expect(JSON.stringify(n.craSnapshot)).not.toMatch(/548|Delinquent|VantageScore/);
+    expect(n.craScoreEnc).toMatch(/^enc:v1:/);
+    const { noticeScore } = await import("@/server/domain/screening/adverse");
+    expect(noticeScore(n)).toMatchObject({ value: 548, band: "POOR" });
+    const step = await db().agentStep.findFirstOrThrow({ where: { applicationId: s.applicationId, stepName: "screening.fetchSummary" } });
+    expect(JSON.stringify(step.outputJson)).not.toMatch(/548|keyFactors|scoreModel|scoreRange|scoreDate|Delinquent/);
+    const doc = await db().generatedDocument.findFirstOrThrow({ where: { applicationId: s.applicationId, kind: "ADVERSE_ACTION" } });
+    await getObject(doc.storageKey); // exists
+
+    await purgeExpired({ dryRun: false, now: new Date(Date.now() + 130 * 86_400_000), agencyId: agency.id });
+    expect((await db().adverseActionNotice.findUniqueOrThrow({ where: { applicationId: s.applicationId } })).craScoreEnc).toBeNull();
+    const after = await db().generatedDocument.findUniqueOrThrow({ where: { id: doc.id } });
+    expect(after.purgedAt).toBeTruthy();
+    expect(after.sha256).toBe(doc.sha256);
+    await expect(getObject(doc.storageKey)).rejects.toThrow();
+  });
+
+  it("after the 730-day purge the pipeline still renders, the lead is a tombstone and the opportunity is lost", async () => {
+    const { agency, unit } = await agencyWith("MANUAL");
+    const s = await submittedApplication(agency.id, unit.id, { incomeCents: 540_000 });
+    await answerReferences(s.applicationId, "Always paid on time and kept it clean.");
+    await completeScreening(agency.id, s.applicationId, "poor");
+    await evaluate(agency.id, s.applicationId);
+    await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[0]] });
+    await flushOutbox();
+    await purgeExpired({ dryRun: false, now: new Date(Date.now() + 800 * 86_400_000), agencyId: agency.id });
+    const { pipelineCards } = await import("@/server/domain/desk/pipeline");
+    const { tenantDb } = await import("@/server/tenant");
+    const cards = await pipelineCards(tenantDb(agency.id), Date.now());
+    expect(cards.find((c) => c.applicationId === s.applicationId)).toMatchObject({ stage: "LOST", name: "Removed applicant" });
+    const app = await db().application.findUniqueOrThrow({ where: { id: s.applicationId }, include: { lead: true } });
+    expect(app.lead).toMatchObject({ nameEnc: null, emailEnc: null });
+    const steps = await db().agentStep.findMany({ where: { applicationId: s.applicationId, stepName: { in: ["references.analyze", "rationale.generate"] } } });
+    expect(steps.every((x) => x.outputJson === null)).toBe(true);
+    expect(await db().llmCall.count({ where: { applicationId: s.applicationId, redactedInputEnc: { not: null } } })).toBe(0);
+    expect(await db().generatedDocument.count({ where: { applicationId: s.applicationId, purgedAt: null } })).toBe(0);
+  });
+
+  it("a user with two declined applications is deleted once both are purged, with their magic-link rows", async () => {
+    const { agency } = await agencyWith("MANUAL");
+    const u1 = await makeUnit(agency.id);
+    const u2 = await makeUnit(agency.id);
+    const a = await submittedApplication(agency.id, u1.id, { incomeCents: 540_000 });
+    const user = await db().user.findUniqueOrThrow({ where: { id: a.userId } });
+    // Second application from the same user and lead.
+    const { startApplication, saveStep, submitApplication } = await import("@/server/domain/applications/service");
+    const app2 = await startApplication(agency.id, u2.id, { id: user.id, email: user.email, name: user.name });
+    await saveStep(agency.id, app2.id, user.id, 1, { legalName: "Maya Chen", phone: "510-555-0101", desiredMoveIn: "2026-11-01", totalOccupants: 1 });
+    await saveStep(agency.id, app2.id, user.id, 2, { residences: [{ address: "12 Oak St", landlordEmail: "", startDate: "2023-01-01", monthlyRent: 2000, consentToContact: false }] });
+    await saveStep(agency.id, app2.id, user.id, 3, { incomeType: "EMPLOYMENT", monthlyIncome: 3000, hasRentSubsidy: false, altEvidenceProvided: false });
+    await submitApplication(agency.id, app2.id, user.id, { fcra: true, referenceContact: false, esign: true, privacy: true, accurate: true });
+    for (const id of [a.applicationId, app2.id]) {
+      const { withdrawApplication } = await import("@/server/domain/decisions/withdraw");
+      await withdrawApplication(agency.id, id, { type: "APPLICANT", id: user.id });
+    }
+    await db().verification.create({ data: { id: crypto.randomUUID(), identifier: "tok1", value: JSON.stringify({ email: user.email, name: user.name }), expiresAt: new Date() } });
+    await db().verification.create({ data: { id: crypto.randomUUID(), identifier: "tok2", value: JSON.stringify({ email: `x${user.email}`, name: "Someone else" }), expiresAt: new Date() } });
+    const r = await purgeExpired({ dryRun: false, now: new Date(Date.now() + 800 * 86_400_000), agencyId: agency.id });
+    expect(r.usersDeleted).toBe(1);
+    expect(await db().user.findUnique({ where: { id: user.id } })).toBeNull();
+    expect(await db().verification.count({ where: { identifier: "tok1" } })).toBe(0);
+    expect(await db().verification.count({ where: { identifier: "tok2" } })).toBe(1);
   });
 });

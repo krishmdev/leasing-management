@@ -32,7 +32,7 @@ export async function inviteToScreening(ctx: StepCtx, agencyId: string, applicat
   if (!inv) {
     inv = await provider.createInvitation({
       idempotencyKey: key,
-      applicantEmail: decryptLead(app.lead).email,
+      applicantEmail: decryptLead(app.lead).email ?? (() => { throw new Error("applicant was purged"); })(),
       rentCents: app.unit.rentCents,
       callbackUrl: `${(process.env.APP_URL ?? "http://localhost:3041").replace(/\/$/, "")}/api/webhooks/screening/${provider.id}`,
       signal: ctx.signal,

@@ -3,6 +3,7 @@ import { tenantDb } from "@/server/tenant";
 import { withTxRetry } from "@/server/txRetry";
 import { lockApplication, lockHoldForApplication, lockLease, lockUnit } from "@/server/domain/locks";
 import { promoteHead } from "./holds";
+import { advanceStage } from "@/server/domain/leads/service";
 
 const OPEN = ["DRAFT", "SUBMITTED", "REFERENCES_PENDING", "SCREENING", "SCREENED", "DECISION_PENDING", "APPROVED", "CONDITIONAL", "LEASE_SENT"];
 
@@ -29,6 +30,7 @@ export async function withdrawApplication(agencyId: string, applicationId: strin
         }
       }
       await tx.approvalTask.updateMany({ where: { applicationId, status: "OPEN" }, data: { status: "DISMISSED", resolvedAt: new Date() } });
+      await advanceStage(tx, agencyId, app.leadId, app.unitId, "LOST");
       await audit({ agencyId, actorType: actor.type, actorId: actor.id, action: "application.withdrawn", entity: "Application", entityId: applicationId }, tx);
       return { status: "withdrawn" as const };
     }),

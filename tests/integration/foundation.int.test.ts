@@ -128,8 +128,8 @@ describe("encrypted records in the database", () => {
     const l2 = await makeLead(A.id, "two@example.com", "Two Person");
     await db().$executeRaw`UPDATE "Lead" SET "emailEnc" = ${l1.emailEnc} WHERE id = ${l2.id}`;
     const row = await db().lead.findUniqueOrThrow({ where: { id: l2.id } });
-    expect(() => decryptField({ agencyId: A.id, model: "Lead", id: l2.id, field: "emailEnc" }, row.emailEnc)).toThrow(DecryptError);
-    expect(fields({ agencyId: A.id, model: "Lead", id: l1.id }).dec("emailEnc", l1.emailEnc)).toBe("one@example.com");
+    expect(() => decryptField({ agencyId: A.id, model: "Lead", id: l2.id, field: "emailEnc" }, row.emailEnc!)).toThrow(DecryptError);
+    expect(fields({ agencyId: A.id, model: "Lead", id: l1.id }).dec("emailEnc", l1.emailEnc!)).toBe("one@example.com");
   });
 
   it("ciphertext moved to another tenant's row no longer decrypts", async () => {
@@ -137,7 +137,7 @@ describe("encrypted records in the database", () => {
     const lb = await makeLead(B.id, "b@example.com");
     await db().$executeRaw`UPDATE "Lead" SET "nameEnc" = ${la.nameEnc} WHERE id = ${lb.id}`;
     const row = await db().lead.findUniqueOrThrow({ where: { id: lb.id } });
-    expect(() => decryptField({ agencyId: B.id, model: "Lead", id: lb.id, field: "nameEnc" }, row.nameEnc)).toThrow(DecryptError);
+    expect(() => decryptField({ agencyId: B.id, model: "Lead", id: lb.id, field: "nameEnc" }, row.nameEnc!)).toThrow(DecryptError);
   });
 
   it("record identity can't be changed after insert", async () => {
@@ -248,8 +248,8 @@ describe("key rotation", () => {
       expect(dry.failures.length).toBeGreaterThan(0);
       await rotateAll({ dryRun: false });
       const row = await db().lead.findUniqueOrThrow({ where: { id: lead.id } });
-      expect(envelopeKeyId(row.emailEnc)).toBe("rot2");
-      expect(fields({ agencyId: A.id, model: "Lead", id: lead.id }).dec("emailEnc", row.emailEnc)).toBe("rotate@example.com");
+      expect(envelopeKeyId(row.emailEnc!)).toBe("rot2");
+      expect(fields({ agencyId: A.id, model: "Lead", id: lead.id }).dec("emailEnc", row.emailEnc!)).toBe("rotate@example.com");
       expect((await rotateAll({ dryRun: true })).rows.Lead).toBe(0);
     } finally {
       setKeyProvider(old);

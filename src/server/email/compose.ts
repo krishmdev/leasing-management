@@ -39,7 +39,8 @@ async function resolveRecipient(ctx: Ctx, r: Recipient): Promise<string[]> {
   switch (r.kind) {
     case "lead": {
       const l = await ctx.t.lead.findUnique({ where: { id: r.id } });
-      return l ? [decryptLead(l).email] : [];
+      const email = l ? decryptLead(l).email : null;
+      return email ? [email] : [];
     }
     case "user": {
       // Better Auth users are global; the tenant client allows plain reads of them.

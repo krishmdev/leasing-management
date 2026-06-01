@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { looksLikeSsn, NO_SSN_MESSAGE } from "@/lib/pii";
 import { uuidv7 } from "@/lib/ids";
 import type { OpportunityStage } from "@/generated/prisma/client";
 import { tenantDb, type TenantTx } from "@/server/tenant";
@@ -14,8 +15,8 @@ export const ContactInput = z.object({
 });
 
 export const InterestInput = ContactInput.extend({
-  desiredMoveIn: z.coerce.date(),
-  message: z.string().trim().max(1500).optional().or(z.literal("")),
+  desiredMoveIn: z.coerce.date({ error: "Pick a move-in date" }),
+  message: z.string().trim().max(1500).refine((m) => !looksLikeSsn(m), NO_SSN_MESSAGE).optional().or(z.literal("")),
 });
 
 const ORDER: OpportunityStage[] = ["INTEREST", "SHOWING", "APPLIED", "SCREENED", "DECISION", "LEASE_SIGNED"];
@@ -35,9 +36,11 @@ export async function upsertLead(tx: TenantTx, agencyId: string, c: z.infer<type
   return tx.lead.findUniqueOrThrow({ where: { agencyId_emailBidx: { agencyId, emailBidx: bidx } } });
 }
 
-export function decryptLead(l: { id: string; agencyId: string; nameEnc: string; emailEnc: string; phoneEnc: string | null }) {
+/** Decrypt a lead's contact details. A lead purged under the retention policy comes back as a tombstone. */
+export function decryptLead(l: { id: string; agencyId: string; nameEnc: string | null; emailEnc: string | null; phoneEnc: string | null }) {
+  if (!l.nameEnc || !l.emailEnc) return { name: "Removed applicant", email: null, phone: null, purged: true as const };
   const f = fields({ agencyId: l.agencyId, model: "Lead", id: l.id });
-  return { name: f.dec("nameEnc", l.nameEnc), email: f.dec("emailEnc", l.emailEnc), phone: f.decOpt("phoneEnc", l.phoneEnc) };
+  return { name: f.dec("nameEnc", l.nameEnc), email: f.dec("emailEnc", l.emailEnc), phone: f.decOpt("phoneEnc", l.phoneEnc), purged: false as const };
 }
 
 export async function ensureOpportunity(tx: TenantTx, agencyId: string, leadId: string, unitId: string) {

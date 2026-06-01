@@ -123,7 +123,8 @@ export async function executeDecision(agencyId: string, applicationId: string, d
         });
       }
       await tx.approvalTask.updateMany({ where: { applicationId, status: "OPEN", type: { in: ["DECISION", "ESCALATION"] } }, data: { status: "RESOLVED", resolvedAt: now, resolvedById: d.decidedById ?? null } });
-      await advanceStage(tx, agencyId, app.leadId, app.unitId, "DECISION", now);
+      // A declined prospect leaves the pipeline; approvals move on to the decision column.
+      await advanceStage(tx, agencyId, app.leadId, app.unitId, d.outcome === "DECLINE" ? "LOST" : "DECISION", now);
       await audit({
         agencyId, actorType: d.decidedByType === "AGENT" ? "AGENT" : "USER", actorId: d.decidedById ?? null,
         action: d.mode === "AUTONOMOUS" ? "decision.auto_executed" : "decision.executed", entity: "Application", entityId: applicationId,
