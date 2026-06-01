@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { requireStaff, staffMemberships } from "@/server/session";
+import { db } from "@/server/db";
 import { DeskNav } from "@/components/desk/DeskNav";
 import { signOut } from "@/app/(auth)/login/actions";
 import { can, DESK_SECTIONS } from "@/server/access";
 
-export const metadata: Metadata = { title: { default: "Desk", template: "%s · Desk" } };
+export async function generateMetadata({ params }: { params: Promise<{ agencySlug: string }> }): Promise<Metadata> {
+  const org = await db().organization.findUnique({ where: { slug: (await params).agencySlug } });
+  const name = org ? `${org.name} desk` : "Desk";
+  return { title: { default: name, template: `%s · ${name}` } };
+}
 
 export default async function DeskLayout({ children, params }: { children: React.ReactNode; params: Promise<{ agencySlug: string }> }) {
   const { agencySlug } = await params;

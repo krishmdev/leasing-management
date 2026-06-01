@@ -10,9 +10,10 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   return (
     <main className="grid min-h-dvh place-items-center bg-paper px-4 py-12">
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-8 block text-center font-mono text-xs uppercase tracking-[0.2em] text-muted">
+        <Link href="/" className="mb-3 block text-center font-mono text-xs uppercase tracking-[0.2em] text-muted">
           Leasing Desk
         </Link>
+        <h1 className="mb-6 text-center text-xl font-semibold">Sign in</h1>
         <LoginForms next={next ?? ""} />
         {demo && (
           <div className="mt-6 rounded-lg border border-dashed border-line-strong p-4 text-xs text-ink-2">
