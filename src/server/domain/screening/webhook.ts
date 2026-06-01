@@ -3,6 +3,7 @@ import { audit } from "@/server/audit/audit";
 import { tenantDb } from "@/server/tenant";
 import { maybeStartEvaluation } from "@/server/domain/applications/service";
 import { screeningProvider } from "./providers";
+import { lockApplication } from "@/server/domain/locks";
 
 /**
  * Provider webhook. Dedupe on the provider's event id, record the status change and queue the
@@ -17,6 +18,8 @@ export async function handleScreeningWebhook(providerId: string, req: Request): 
   const sr = await db().screeningRequest.findUnique({ where: { providerApplicantRef: ev.ref } });
   if (!sr) return { status: 404, body: { error: "unknown ref" } };
   return tenantDb(sr.agencyId).$transaction(async (tx) => {
+    // Lock order: the application before the screening request.
+    await lockApplication(tx, sr.agencyId, sr.applicationId);
     const fresh = await tx.webhookEvent.createMany({ data: [{ provider: provider.id, eventId: ev.eventId, payload: { ref: ev.ref, event: ev.event } }], skipDuplicates: true });
     if (fresh.count === 0) return { status: 200, body: { duplicate: true } };
     await tx.screeningRequest.updateMany({ where: { id: sr.id, status: { not: "COMPLETE" } }, data: { status: ev.event === "COMPLETE" ? "COMPLETE" : "ERROR" } });

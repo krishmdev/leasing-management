@@ -170,3 +170,27 @@ describe("webhooks", () => {
     expect((await handleScreeningWebhook("mock", bad)).status).toBe(401);
   });
 });
+
+describe("evaluation trigger under concurrency", () => {
+  it("two references finishing at once, after screening, start exactly one evaluation", async () => {
+    const { agency, unit } = await agencyWith("MANUAL");
+    const s = await submittedApplication(agency.id, unit.id);
+    // a second reference on the same application
+    const res = await db().residenceHistory.findFirstOrThrow({ where: { applicationId: s.applicationId } });
+    const res2 = await db().residenceHistory.create({ data: { id: crypto.randomUUID(), agencyId: agency.id, applicationId: s.applicationId, startDate: new Date("2019-01-01"), endDate: new Date("2021-12-31"), monthlyRentCents: 200000, consentToContact: true } });
+    const { deriveToken } = await import("@/server/crypto/tokens");
+    const req2 = await db().referenceRequest.create({ data: { id: crypto.randomUUID(), agencyId: agency.id, applicationId: s.applicationId, residenceId: res2.id, tokenHash: "", expiresAt: new Date(Date.now() + 86_400_000) } });
+    await db().referenceRequest.update({ where: { id: req2.id }, data: { tokenHash: deriveToken("reference", req2.id, 1).hash } });
+    void res;
+    await completeScreening(agency.id, s.applicationId);
+    expect((await db().application.findUniqueOrThrow({ where: { id: s.applicationId } })).status).toBe("REFERENCES_PENDING");
+    const { submitReference } = await import("@/server/domain/references/service");
+    const reqs = await db().referenceRequest.findMany({ where: { applicationId: s.applicationId } });
+    const answer = { paidOnTime: "ALWAYS", lateCount: 0, leaseViolations: false, noticeGiven: true, propertyCondition: 5, wouldRentAgain: "YES", respondentRole: "OWNER", attestation: true } as const;
+    await Promise.all(reqs.map((r) => submitReference(deriveToken("reference", r.id, r.tokenVersion).token, answer)));
+    expect((await db().application.findUniqueOrThrow({ where: { id: s.applicationId } })).status).toBe("SCREENED");
+    const app = await db().application.findUniqueOrThrow({ where: { id: s.applicationId } });
+    const [row] = await db().$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM pgboss.job WHERE name = ${Q.evaluate} AND singleton_key = ${`evaluate:${s.applicationId}:${app.criteriaVersionId}`}`;
+    expect(Number(row.n)).toBe(1);
+  });
+});

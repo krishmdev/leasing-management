@@ -179,8 +179,14 @@ export async function submitApplication(agencyId: string, id: string, userId: st
  * Called whenever screening or a reference finishes. When the report is in and no reference is
  * still outstanding, move to SCREENED and queue the evaluation. Safe to call repeatedly: the
  * status change is a compare-and-set and the job has a singleton key.
+ *
+ * Callers lock the Application row first (see lockApplication). Two references finishing at
+ * once, or the last reference racing the screening webhook, then run this one after the other,
+ * and the second one sees the first one's committed row, so exactly one of them queues the
+ * evaluation instead of each seeing the other as still pending.
  */
 export async function maybeStartEvaluation(tx: TenantTx, agencyId: string, applicationId: string) {
+  await lockApplication(tx, agencyId, applicationId);
   const app = await tx.application.findUnique({ where: { id: applicationId } });
   if (!app?.criteriaVersionId || !["REFERENCES_PENDING", "SCREENING"].includes(app.status)) return false;
   const sr = await tx.screeningRequest.findFirst({ where: { applicationId, criteriaVersionId: app.criteriaVersionId } });
