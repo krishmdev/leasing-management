@@ -212,7 +212,19 @@ describe("retention: credit data and documents", () => {
     await evaluate(agency.id, s.applicationId);
     await executeDecision(agency.id, s.applicationId, { outcome: "DECLINE", mode: "MANUAL", decidedByType: "USER", reasonCodes: [REASON_OPTIONS[0]] });
     await flushOutbox();
+    const rubricStep = await db().agentStep.findFirstOrThrow({ where: { applicationId: s.applicationId, stepName: "rubric.evaluate" } });
+    expect(JSON.stringify(rubricStep.inputJson)).toMatch(/540000/);
+    const docs = await db().generatedDocument.findMany({ where: { applicationId: s.applicationId } });
     await purgeExpired({ dryRun: false, now: new Date(Date.now() + 800 * 86_400_000), agencyId: agency.id });
+    const allSteps = await db().agentStep.findMany({ where: { applicationId: s.applicationId } });
+    expect(allSteps.length).toBeGreaterThan(0);
+    expect(allSteps.every((x) => x.inputJson === null)).toBe(true);
+    expect(JSON.stringify(allSteps.map((x) => x.outputJson))).not.toMatch(/540000|5400\b/);
+    // A file left behind by a failed delete is removed by the next run's sweep.
+    const { putObject } = await import("@/server/storage");
+    await putObject(docs[0].storageKey, Buffer.from("left behind"));
+    await purgeExpired({ dryRun: false, now: new Date(Date.now() + 800 * 86_400_000), agencyId: agency.id });
+    await expect(getObject(docs[0].storageKey)).rejects.toThrow();
     const { pipelineCards } = await import("@/server/domain/desk/pipeline");
     const { tenantDb } = await import("@/server/tenant");
     const cards = await pipelineCards(tenantDb(agency.id), Date.now());

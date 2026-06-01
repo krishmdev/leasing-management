@@ -153,7 +153,11 @@ export default async function ApplicationPage({ params }: { params: Promise<{ ag
               {app.documents.map((doc) => (
                 <li key={doc.id} className="flex items-center justify-between px-4 py-2">
                   <span>{human(doc.kind)} <span className="font-mono text-2xs text-muted">{doc.templateVersion}</span></span>
-                  <a className="text-info underline-offset-2 hover:underline" href={`/api/documents/${doc.id}?agency=${agencySlug}`}>Download</a>
+                  {doc.purgedAt ? (
+                    <span className="text-muted">Removed under retention</span>
+                  ) : (
+                    <a className="text-info underline-offset-2 hover:underline" href={`/api/documents/${doc.id}?agency=${agencySlug}`}>Download</a>
+                  )}
                 </li>
               ))}
             </ul>

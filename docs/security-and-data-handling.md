@@ -60,11 +60,17 @@ periods with counsel; the FTC Disposal Rule is 16 CFR 682.
   - encrypted name, phone, income and residence fields;
   - reference free text and model analysis;
   - redacted prompt copies, stored model outputs and step outputs that carried them;
+  - every agent step's stored input (the rubric step's input holds income and rent);
   - the rationale text, interest messages, and consent IP and user agent;
   - every PDF for the application (lease, notice, decision letters);
   - the lead's contact fields, when they have no other application or residency.
 - **What stays.** Status, decision, reason codes, the notice row, the credit band and counts,
-  and each document's sha256, so the decision can still be shown to have been made and sent.
+  each document's sha256, and the rubric step's output. That output has the score lines with
+  derived text such as "3.10x tenant-portion rent", but not the income or rent amounts. It's
+  kept so the decision can still be shown to have been made and sent.
+- **Files.** A PDF is deleted after its row is marked purged. A failed delete is logged, and
+  each run sweeps purged documents whose file is still on disk. A download of a purged
+  document returns 410.
 - **Better Auth rows.** An applicant's user, session, account and verification rows are deleted
   only if the same user has no staff membership, other application or residency at any agency.
 

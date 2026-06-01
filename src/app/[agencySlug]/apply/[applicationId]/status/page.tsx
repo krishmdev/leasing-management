@@ -42,8 +42,8 @@ export default async function Status({ params }: { params: Promise<{ agencySlug:
     },
   ];
   const lease = app.lease && app.lease.status === "SENT" ? `/${agencySlug}/lease/${deriveToken("lease", app.lease.id, app.lease.tokenVersion).token}` : null;
-  const notice = app.documents.find((d) => d.kind === "ADVERSE_ACTION");
-  const signed = app.documents.find((d) => d.kind === "SIGNED_LEASE");
+  const notice = app.documents.find((d) => d.kind === "ADVERSE_ACTION" && !d.purgedAt);
+  const signed = app.documents.find((d) => d.kind === "SIGNED_LEASE" && !d.purgedAt);
   return (
     <div className="mx-auto max-w-2xl px-5 pt-12">
       <p className="text-sm text-muted">{app.unit.property.name} {app.unit.label} · {usd(app.unit.rentCents)}/mo</p>

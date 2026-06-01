@@ -31,6 +31,7 @@ export async function loadDocumentFor(id: string, leaseToken: string | null) {
     if (lease && lease.id === doc.leaseId && lease.agencyId === doc.agencyId) actor = { type: "APPLICANT", id: null };
   }
   if (!actor) return "forbidden" as const;
+  if (doc.purgedAt) return "purged" as const;
   await audit({ agencyId: doc.agencyId, actorType: actor.type, actorId: actor.id, action: "document.downloaded", entity: "GeneratedDocument", entityId: doc.id, metadata: { kind: doc.kind } });
   return { doc, bytes: await getObject(doc.storageKey) };
 }

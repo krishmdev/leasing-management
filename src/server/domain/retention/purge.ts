@@ -3,7 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
 import { tenantDb } from "@/server/tenant";
 import { audit } from "@/server/audit/audit";
-import { deleteObject } from "@/server/storage";
+import { deleteObject, objectExists } from "@/server/storage";
 
 export const RetentionConfig = z.object({ creditDataDays: z.number().int().min(1).default(120), declinedPiiDays: z.number().int().min(30).default(730) });
 
@@ -19,8 +19,10 @@ const RATIONALE_REMOVED = "Removed under the retention policy.";
  *
  * declinedPiiDays after a decline or withdrawal:
  *   every encrypted PII column for the application, its residences, reference text and model
- *   analysis, prompt copies and model outputs, the rationale text, interest messages, consent
- *   IP and user agent, and all of its PDFs. The lead's contact fields go when the lead has no
+ *   analysis, prompt copies and model outputs, every agent step's input (the rubric input
+ *   carries income and rent), the rationale text, interest messages, consent IP and user
+ *   agent, and all of its PDFs. The rubric step's output keeps its derived line text (e.g.
+ *   "3.10x tenant-portion rent") because the decision record shows it. The lead's contact fields go when the lead has no
  *   other live application or residency. What remains is the tombstone: status, decision,
  *   reason codes, notice record and document hashes.
  *
@@ -49,9 +51,10 @@ export async function purgeExpired(opts: { dryRun: boolean; now?: Date; agencyId
   }
   if (opts.dryRun) return { perAgency: report, usersDeleted: 0 };
 
-  // Files only after their rows are marked purged; a failed delete is retried on the next run's
-  // sweep of documents with purgedAt set.
-  await Promise.all(filesToDelete.map((k) => deleteObject(k).catch(() => undefined)));
+  // Files go only after their rows are marked purged. A failed delete is logged; the sweep
+  // below retries it on every run for any purged document whose file is still on disk.
+  await Promise.all(filesToDelete.map((k) => deleteObject(k).catch((e) => console.error(`retention: failed to delete ${k}:`, e))));
+  await sweepPurgedFiles(opts.agencyId);
 
   let usersDeleted = 0;
   for (const userId of candidateUsers) if (await deleteUserIfUnused(userId)) usersDeleted++;
@@ -101,7 +104,9 @@ async function purgeAgency(agencyId: string, cfg: z.infer<typeof RetentionConfig
       await tx.residenceHistory.updateMany({ where: { applicationId: a.id }, data: { addressEnc: null, landlordNameEnc: null, landlordEmailEnc: null, landlordPhoneEnc: null } });
       await tx.referenceResponse.updateMany({ where: { request: { applicationId: a.id } }, data: { freeTextEnc: null, aiAnalysis: Prisma.DbNull } });
       await tx.llmCall.updateMany({ where: { applicationId: a.id }, data: { redactedInputEnc: null, output: {} } });
-      // Step outputs that carried model output (reference analyses, the rationale).
+      // Step inputs can carry income and rent (rubric.evaluate) or reference text; outputs of the
+      // steps that carried model output (reference analyses, the rationale) go too.
+      await tx.agentStep.updateMany({ where: { applicationId: a.id }, data: { inputJson: Prisma.DbNull } });
       await tx.agentStep.updateMany({ where: { applicationId: a.id, stepName: { in: ["references.analyze", "rationale.generate"] } }, data: { outputJson: Prisma.DbNull } });
       await tx.recommendation.updateMany({ where: { applicationId: a.id }, data: { rationale: RATIONALE_REMOVED } });
       await tx.consentRecord.updateMany({ where: { applicationId: a.id }, data: { ip: null, ua: null } });
@@ -123,6 +128,15 @@ async function purgeAgency(agencyId: string, cfg: z.infer<typeof RetentionConfig
     );
   });
   return result;
+}
+
+/** Retry file deletes for purged documents whose file still exists. */
+async function sweepPurgedFiles(agencyId?: string) {
+  const purged = await db().generatedDocument.findMany({ where: { purgedAt: { not: null }, ...(agencyId ? { agencyId } : {}) }, select: { storageKey: true } });
+  for (const d of purged) {
+    if (!(await objectExists(d.storageKey))) continue;
+    await deleteObject(d.storageKey).catch((e) => console.error(`retention: sweep failed to delete ${d.storageKey}:`, e));
+  }
 }
 
 /** Magic-link verification rows keep the address in `value` as JSON; match it exactly. */
