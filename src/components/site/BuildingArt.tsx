@@ -2,6 +2,13 @@
  * Placeholder "photos": deterministic SVG facades generated from a seed, tinted with the agency
  * palette. No stock images, so nothing to license.
  */
+/** Stable number from a string (FNV-1a), so a building always gets the same drawing. */
+export function seedOf(key: string) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193);
+  return (h >>> 0) % 100_000;
+}
+
 function rng(seed: number) {
   let s = (seed * 2654435761) >>> 0 || 1;
   return () => {

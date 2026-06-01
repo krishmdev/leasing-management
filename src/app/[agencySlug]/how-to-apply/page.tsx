@@ -12,7 +12,6 @@ export default async function HowToApply({ params }: { params: Promise<{ agencyS
 
   return (
     <div className="mx-auto max-w-3xl px-5 pt-12">
-      <p className="text-sm font-medium uppercase tracking-widest text-brand">Screening criteria v{c.version}</p>
       <h1 className="display mt-2 text-4xl font-semibold">How we review applications</h1>
       <p className="mt-4 text-lg text-ink-2">
         Every applicant is scored against the same written criteria, and the version in effect when you submit is the one we use.

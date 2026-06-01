@@ -49,7 +49,7 @@ export default async function Listings({
         <span className="ml-auto flex items-center gap-2 text-muted">
           Sort
           {(["available", "rent-asc", "rent-desc"] as const).map((s) => (
-            <Link key={s} href={qs({ sort: s })} className={filter.sort === s ? "font-semibold text-ink underline underline-offset-4" : "hover:text-ink"}>
+            <Link key={s} href={qs({ sort: s })} aria-current={filter.sort === s ? "true" : undefined} className={`inline-flex min-h-8 items-center px-1 ${filter.sort === s ? "font-semibold text-ink underline underline-offset-4" : "hover:text-ink"}`}>
               {{ available: "Soonest", "rent-asc": "Price ↑", "rent-desc": "Price ↓" }[s]}
             </Link>
           ))}
@@ -70,6 +70,10 @@ export default async function Listings({
           ))}
         </div>
       )}
+      <div className="mt-12 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface p-5 ring-1 ring-black/5">
+        <p className="text-sm text-ink-2">Before you apply: here&apos;s exactly how we review applications, and what we never ask for.</p>
+        <Link href={`/${agency.slug}/how-to-apply`} className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-semibold ring-1 ring-black/15">Our screening criteria</Link>
+      </div>
     </div>
   );
 }

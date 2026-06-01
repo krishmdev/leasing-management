@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BuildingArt } from "./BuildingArt";
+import { BuildingArt, seedOf } from "./BuildingArt";
 import { bathsLabel, bedsLabel, dayLabel, usd } from "@/lib/format";
 
 export interface UnitCardData {
@@ -12,7 +12,7 @@ export interface UnitCardData {
   availableOn: Date;
   status: string;
   photoSeed: number;
-  property: { name: string; neighborhood: string | null; city: string };
+  property: { id: string; name: string; neighborhood: string | null; city: string };
 }
 
 export function UnitCard({ unit, agencySlug, brand, accent, now }: { unit: UnitCardData; agencySlug: string; brand: string; accent: string; now: number }) {
@@ -23,7 +23,7 @@ export function UnitCard({ unit, agencySlug, brand, accent, now }: { unit: UnitC
       className="group block overflow-hidden rounded-2xl border border-black/5 bg-surface shadow-[0_1px_0_rgba(0,0,0,0.03)] transition hover:-translate-y-0.5 hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] overflow-hidden">
-        <BuildingArt seed={unit.photoSeed} brand={brand} accent={accent} className="size-full transition duration-500 group-hover:scale-[1.03]" label={`Illustration of ${unit.property.name}`} />
+        <BuildingArt seed={seedOf(unit.property.id)} brand={brand} accent={accent} className="size-full transition duration-500 group-hover:scale-[1.03]" label={`Illustration of ${unit.property.name}`} />
         <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 text-xs font-medium backdrop-blur">
           {unit.status === "PENDING" ? "Application pending" : soon ? "Available now" : `From ${dayLabel(unit.availableOn)}`}
         </span>

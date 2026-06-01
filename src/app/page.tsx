@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/server/db";
 import { ThemeSchema } from "@/server/domain/agency";
-import { BuildingArt } from "@/components/site/BuildingArt";
+import { BuildingArt, seedOf } from "@/components/site/BuildingArt";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export default async function Home() {
             const level = (o.settings?.automation as { level?: string } | null)?.level?.toLowerCase();
             return (
               <Link key={o.id} href={`/${o.slug}`} className="group overflow-hidden rounded-xl border border-line bg-surface transition hover:shadow-lg">
-                {theme && <BuildingArt seed={5 + i * 9} brand={theme.brand} accent={theme.accent} className="aspect-[16/7] w-full" label="" />}
+                {theme && <BuildingArt seed={seedOf(o.slug) + i} brand={theme.brand} accent={theme.accent} className="aspect-[16/7] w-full" label="" />}
                 <div className="p-5">
                   <p className="text-lg font-semibold">{o.name}</p>
                   <p className="text-sm text-muted">{theme?.tagline}</p>

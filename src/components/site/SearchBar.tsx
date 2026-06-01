@@ -16,7 +16,7 @@ export function SearchBar({ agencySlug, beds, maxRent }: { agencySlug: string; b
         <span className="text-xs font-medium text-muted">Max rent</span>
         <select name="maxRent" defaultValue={maxRent ?? ""} className="bg-transparent text-sm font-medium focus:outline-none">
           <option value="">No limit</option>
-          {[2500, 3000, 3500, 4000, 4500].map((v) => (
+          {[...new Set([2500, 3000, 3500, 4000, 4500, ...(maxRent ? [maxRent] : [])])].sort((a, b) => a - b).map((v) => (
             <option key={v} value={v}>${v.toLocaleString()}</option>
           ))}
         </select>

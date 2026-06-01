@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Menu } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import type { PublicAgency } from "@/server/domain/agency";
 
@@ -30,19 +31,29 @@ export function AgencyShell({ agency, children }: { agency: PublicAgency; childr
       </a>
       <header className="sticky top-0 z-30 border-b border-black/5 bg-paper/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
-          <Link href={base} className="flex items-center gap-2.5">
-            <span aria-hidden className="grid size-8 place-items-center rounded-full bg-brand font-display text-sm font-semibold text-brand-ink">
+          <Link href={base} className="flex min-w-0 items-center gap-2.5">
+            <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-full bg-brand font-display text-sm font-semibold text-brand-ink">
               {agency.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}
             </span>
-            <span className="display text-lg font-semibold">{agency.name}</span>
+            <span className="display truncate text-lg font-semibold">{agency.name}</span>
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-1 text-sm">
+          <nav aria-label="Main" className="flex shrink-0 items-center gap-1 text-sm">
             <Link className="hidden rounded-full px-3 py-1.5 hover:bg-black/5 sm:block" href={`${base}/listings`}>Available homes</Link>
             <Link className="hidden rounded-full px-3 py-1.5 hover:bg-black/5 sm:block" href={`${base}/how-to-apply`}>How to apply</Link>
             <Link className="hidden rounded-full px-3 py-1.5 hover:bg-black/5 md:block" href={`${base}/portal`}>Residents</Link>
-            <Link className="rounded-full bg-brand px-4 py-2 font-medium text-brand-ink hover:opacity-90" href={`${base}/listings`}>
+            <Link className="whitespace-nowrap rounded-full bg-brand px-4 py-2 font-medium text-brand-ink hover:opacity-90" href={`${base}/listings`}>
               Find a home
             </Link>
+            <details className="relative sm:hidden">
+              <summary className="grid size-10 cursor-pointer list-none place-items-center rounded-full hover:bg-black/5" aria-label="Menu">
+                <Menu aria-hidden className="size-5" />
+              </summary>
+              <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-surface p-2 shadow-xl ring-1 ring-black/10">
+                {[["Available homes", `${base}/listings`], ["How to apply", `${base}/how-to-apply`], ["Resident portal", `${base}/portal`]].map(([l, h]) => (
+                  <Link key={h} href={h} className="flex min-h-11 items-center rounded-xl px-3 hover:bg-paper">{l}</Link>
+                ))}
+              </div>
+            </details>
           </nav>
         </div>
       </header>

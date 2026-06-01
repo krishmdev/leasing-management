@@ -4,7 +4,7 @@ import { requestTime } from "@/lib/time";
 import { publicAgency } from "@/server/domain/agency";
 import { listPublicUnits, publicProperties } from "@/server/domain/listings/queries";
 import { UnitCard } from "@/components/site/UnitCard";
-import { BuildingArt } from "@/components/site/BuildingArt";
+import { BuildingArt, seedOf } from "@/components/site/BuildingArt";
 import { SearchBar } from "@/components/site/SearchBar";
 import { usd } from "@/lib/format";
 
@@ -36,10 +36,10 @@ export default async function AgencyHome({ params }: { params: Promise<{ agencyS
             <div className="absolute -right-10 -top-6 size-72 rounded-full bg-accent/20 blur-3xl" aria-hidden />
             <div className="relative grid h-[520px] grid-cols-5 grid-rows-6 gap-3">
               <div className="col-span-3 row-span-6 overflow-hidden rounded-[28px] shadow-xl">
-                <BuildingArt seed={properties[0] ? 11 : 3} brand={t.brand} accent={t.accent} variant="tall" className="size-full" label="Illustration of one of our buildings" />
+                <BuildingArt seed={seedOf(properties[0]?.id ?? agency.slug)} brand={t.brand} accent={t.accent} variant="tall" className="size-full" label="Illustration of one of our buildings" />
               </div>
               <div className="col-span-2 row-span-3 overflow-hidden rounded-[22px] shadow-lg">
-                <BuildingArt seed={27} brand={t.brand} accent={t.accent} className="size-full" label="" />
+                <BuildingArt seed={seedOf(properties[1]?.id ?? `${agency.slug}-2`)} brand={t.brand} accent={t.accent} className="size-full" label="" />
               </div>
               <div className="col-span-2 row-span-3 grid place-items-center rounded-[22px] bg-brand p-4 text-center text-brand-ink">
                 <div>
@@ -54,7 +54,7 @@ export default async function AgencyHome({ params }: { params: Promise<{ agencyS
 
       <section className="mx-auto max-w-6xl px-5" aria-labelledby="featured">
         <div className="mb-6 flex items-end justify-between">
-          <h2 id="featured" className="display text-3xl font-semibold">Available soon</h2>
+          <h2 id="featured" className="display text-3xl font-semibold">Available homes</h2>
           <Link href={`/${agency.slug}/listings`} className="text-sm font-medium text-brand underline-offset-4 hover:underline">
             See all {units.length} homes →
           </Link>
@@ -71,7 +71,7 @@ export default async function AgencyHome({ params }: { params: Promise<{ agencyS
         <div className="mt-6 grid gap-6 md:grid-cols-3">
           {properties.map((p, i) => (
             <article key={p.id} className="overflow-hidden rounded-2xl bg-surface ring-1 ring-black/5">
-              <BuildingArt seed={40 + i * 13} brand={t.brand} accent={t.accent} className="aspect-[16/10] w-full" label={`Illustration of ${p.name}`} />
+              <BuildingArt seed={seedOf(p.id)} brand={t.brand} accent={t.accent} className="aspect-[16/10] w-full" label={`Illustration of ${p.name}`} />
               <div className="p-5">
                 <p className="text-xs font-medium uppercase tracking-widest text-muted">{p.neighborhood}</p>
                 <h3 className="display mt-1 text-xl font-semibold">{p.name}</h3>
