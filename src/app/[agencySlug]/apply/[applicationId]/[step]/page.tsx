@@ -9,8 +9,8 @@ import { usd } from "@/lib/format";
 
 export const metadata = { title: "Application" };
 
-export default async function StepPage({ params }: { params: Promise<{ agencySlug: string; applicationId: string; step: string }> }) {
-  const { agencySlug, applicationId, step: stepStr } = await params;
+export default async function StepPage({ params, searchParams }: { params: Promise<{ agencySlug: string; applicationId: string; step: string }>; searchParams: Promise<{ saved?: string }> }) {
+  const [{ agencySlug, applicationId, step: stepStr }, { saved }] = await Promise.all([params, searchParams]);
   const step = Number(stepStr);
   if (!Number.isInteger(step) || step < 1 || step > 5) notFound();
   const session = await getSession();
@@ -44,17 +44,29 @@ export default async function StepPage({ params }: { params: Promise<{ agencySlu
           {STEP_TITLES.map((t, i) => {
             const n = i + 1;
             const reachable = n <= app.currentStep;
-            const cls = `block h-1.5 rounded-full ${n === step ? "bg-brand" : n < app.currentStep || n < step ? "bg-brand/50" : "bg-black/10"}`;
+            const bar = `block h-1.5 rounded-full ${n === step ? "bg-brand" : n < app.currentStep || n < step ? "bg-brand/50" : "bg-black/10"}`;
+            const label = <span className={`mt-1.5 hidden text-xs sm:block ${n === step ? "font-semibold text-ink" : "text-muted"}`}>{t}</span>;
             return (
               <li key={t}>
-                {reachable ? <Link href={`/${agencySlug}/apply/${applicationId}/${n}`} aria-current={n === step ? "step" : undefined} className={cls}><span className="sr-only">{t}</span></Link> : <span className={cls} aria-hidden />}
-                <span className={`mt-1.5 hidden text-xs sm:block ${n === step ? "font-semibold text-ink" : "text-muted"}`}>{t}</span>
+                {reachable ? (
+                  <Link href={`/${agencySlug}/apply/${applicationId}/${n}`} aria-current={n === step ? "step" : undefined} aria-label={`Step ${n}: ${t}`} className="block py-2">
+                    <span className={bar} />
+                    {label}
+                  </Link>
+                ) : (
+                  <span className="block py-2" aria-hidden>
+                    <span className={bar} />
+                    {label}
+                  </span>
+                )}
               </li>
             );
           })}
         </ol>
       </nav>
-      <h1 className="display mt-8 text-3xl font-semibold">{STEP_TITLES[step - 1]}</h1>
+      <p className="mt-1 text-sm text-muted sm:hidden">Step {step} of 5 · {STEP_TITLES[step - 1]}</p>
+      {saved && step > 1 && <p role="status" className="mt-3 text-sm text-ok">Saved. You can come back to this link any time to continue.</p>}
+      <h1 className="display mt-6 text-3xl font-semibold">{STEP_TITLES[step - 1]}</h1>
       <StepForm slug={agencySlug} applicationId={applicationId} step={step} values={values} fcraText={CONSENT_TEXT.FCRA_AUTHORIZATION.text} agencyName={agency.name} />
     </div>
   );

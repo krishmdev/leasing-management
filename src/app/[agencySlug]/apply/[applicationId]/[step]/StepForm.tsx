@@ -104,10 +104,26 @@ export function StepForm({ slug, applicationId, step, values, fcraText, agencyNa
 
             {step === 5 && (
               <div className="space-y-3">
+                <dl className="divide-y divide-black/5 rounded-2xl bg-paper text-sm">
+                  {[
+                    [1, "About you", `${values.legalName} · ${values.phone} · move in ${values.desiredMoveIn || "not set"} · ${values.totalOccupants} living there`],
+                    [2, "Where you've lived", values.residences.map((r) => r.address).filter(Boolean).join("; ") || "Nothing entered"],
+                    [3, "Income", `${values.monthlyIncome ? `$${Number(values.monthlyIncome).toLocaleString()}/month` : "Not entered"}${values.hasRentSubsidy ? ` · rental assistance $${values.subsidyMonthly}/month` : ""}`],
+                    [4, "Screening authorization", "Authorized"],
+                  ].map(([n, title, text]) => (
+                    <div key={String(n)} className="flex items-start justify-between gap-4 p-4">
+                      <div>
+                        <dt className="font-medium">{title}</dt>
+                        <dd className="mt-0.5 text-ink-2">{text}</dd>
+                      </div>
+                      <Link href={`/${slug}/apply/${applicationId}/${n}`} className="inline-flex min-h-8 shrink-0 items-center text-sm font-medium text-brand underline-offset-4 hover:underline">Edit</Link>
+                    </div>
+                  ))}
+                </dl>
                 <p className="text-sm text-ink-2">Once you submit, your answers are locked and we start the screening and reference checks. You can still withdraw at any time.</p>
                 <Checkbox id="referenceContact" name="referenceContact" defaultChecked label="Contact the landlords I listed for references." />
                 <Checkbox id="esign" name="esign" label="I agree to use electronic records and signatures." />
-                <Checkbox id="privacy" name="privacy" label="I've read how my information is used, encrypted and deleted." />
+                <Checkbox id="privacy" name="privacy" label={<>I&apos;ve read <Link href={`/${slug}/privacy`} target="_blank" className="underline">how my information is used, encrypted and deleted</Link>.</>} />
                 <Checkbox id="accurate" name="accurate" label="My answers are true and complete." />
                 {["esign", "privacy", "accurate"].map((k) => err(k) && <p key={k} role="alert" className="text-sm text-bad">{err(k)}</p>)}
               </div>

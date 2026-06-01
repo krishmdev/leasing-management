@@ -126,7 +126,7 @@ export async function saveStepAction(slug: string, applicationId: string, step: 
     if (e instanceof ApplicationError) return { message: e.message, values: formValues(fd) };
     throw e;
   }
-  redirect(step === 5 ? `/${slug}/apply/${applicationId}/status` : `/${slug}/apply/${applicationId}/${step + 1}`);
+  redirect(step === 5 ? `/${slug}/apply/${applicationId}/status` : `/${slug}/apply/${applicationId}/${step + 1}?saved=1`);
 }
 
 export async function withdrawMine(slug: string, applicationId: string) {
