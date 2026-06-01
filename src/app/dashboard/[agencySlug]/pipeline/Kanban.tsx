@@ -53,7 +53,7 @@ export function Kanban({ slug, cards }: { slug: string; cards: CardT[] }) {
         </div>
       )}
       <div className="relative">
-      <div className="grid auto-cols-[minmax(210px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-3 pr-6">
+      <div className="relative grid auto-cols-[minmax(210px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-3 pr-6">
         {STAGES.map(([key, label]) => {
           const col = optimistic.filter((c) => c.stage === key);
           const droppable = drag ? canMove(drag.stage, key) : false;
