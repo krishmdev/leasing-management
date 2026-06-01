@@ -2,7 +2,7 @@
 
 **Snapshot Date**: 2026-06-01
 
-**Git Commit**: `c2b979b`
+**Git Commit**: `6ffe270` (code under test for the 2026-06-01 verification run)
 
 **Host Hardware**: Apple M1 Pro (10-core CPU, 16-core GPU, 16 GB Unified Memory)
 **Operating System**: macOS Darwin 26.5.1
@@ -28,7 +28,14 @@ information (PII), including Social Security Numbers and Dates of Birth, in outb
 The live smoke evaluation compared Google's `gemini-3.5-flash-lite` with the deterministic offline
 rule-based lexicon. In those samples, protected-class terms were redacted before model calls,
 reference-text scoring stayed within the 4.5-point limit, no decision rationale triggered a
-guardrail, and the model marked the food-spoilage ticket as high urgency.
+guardrail, and the model marked the food-spoilage ticket as high urgency. This is a previously
+recorded live evaluation, not part of the offline test run below.
+
+The 2026-06-01 run passed `make check` (lint, typecheck, 93 unit tests, 72 integration tests) and
+`make record-tests` (93 unit, 72 integration, and 7 Playwright E2E tests). The offline browser run
+passed with the web and worker egress canaries blocked. Exact counts and the recording time are in
+[`results/tests.json`](../results/tests.json). `pnpm build`, the PII dry-run commands, and GitHub
+Actions were not rerun in this pass.
 
 ---
 
@@ -38,10 +45,10 @@ All test results are serialized to [`results/tests.json`](../results/tests.json)
 
 | Test Suite Tier | Framework | Runner Config | Test Files | Suites / Describe Blocks | Total Tests | Pass Rate | Execution Duration |
 |---|---|---|---|---|---|---|---|
-| **Unit Tests** | Vitest 4.1.11 | `vitest.config.mts` | 11 | 34 suites | 93 | **100%** (93/93) | ~709 ms |
-| **Integration Tests** | Vitest 4.1.11 | `vitest.integration.config.mts` | 6 | 26 suites | 72 | **100%** (72/72) | ~19.2 s |
-| **Playwright E2E** | Playwright 1.63.0 | `playwright.config.ts` | 4 | 5 suites | 7 | **100%** (7/7) | ~28.1 s |
-| **Total Automated** | | | **21 files** | **65 suites** | **172** | **100%** (172/172) | **~48.0 s** |
+| **Unit Tests** | Vitest 4.1.11 | `vitest.config.mts` | 11 | 34 suites | 93 | **100%** (93/93) | ~0.6 s |
+| **Integration Tests** | Vitest 4.1.11 | `vitest.integration.config.mts` | 6 | 26 suites | 72 | **100%** (72/72) | ~18.9 s |
+| **Playwright E2E** | Playwright 1.63.0 | `playwright.config.ts` | 4 | 5 suites | 7 | **100%** (7/7) | ~25.2 s |
+| **Total Automated** | | | **21 files** | **65 suites** | **172** | **100%** (172/172) | **~44.7 s** |
 
 ---
 
@@ -62,7 +69,7 @@ Unit tests execute entirely in-memory with zero external dependencies, validatin
 | `tests/unit/resend.test.ts` | `ResendTransport` | 3 | Resend email transport idempotency headers, HTTP 409 conflict handling, transient network retry classification. |
 | `tests/unit/rubric.test.ts` | `rubric personas`, `thresholds`, `bounded LLM influence`, `fairness invariance`, `criteria validation` | 18 | 100-point rubric scoring personas (Maya, Jordan, Sam, Taylor, Alex), thin-file voucher handling, California SB 267 credit requirement handling, strict 4.5-point reference text LLM ceiling, demographic fairness invariance property tests. |
 | `tests/unit/slots.test.ts` | `generateSlots`, `pickAgent` | 10 | Showing appointment slot expansion, DST boundary stability (spring-forward March 8, 2026; fall-back November 1, 2026), booking lead times, buffer margins, agent round-robin tour dispatch. |
-| **Total Unit** | **11 files** | **93** | **100% Passed (Duration: ~709 ms)** |
+| **Total Unit** | **11 files** | **93** | **100% Passed (Duration: ~0.6 s)** |
 
 ---
 
@@ -78,7 +85,7 @@ Integration tests execute against live PostgreSQL 17 (`leasing_test` database) a
 | `tests/integration/outbox.int.test.ts` | `outbox enqueue`, `email delivery semantics` | 7 | Transactional outbox commits within database transactions; at-least-once Mailpit SMTP delivery; deterministic message deduplication keys; retry backoff handling. |
 | `tests/integration/pipeline.int.test.ts` | `end to end per automation level`, `crash safety`, `reaper and job dedupe`, `webhooks` | 12 | End-to-end application lifecycle across Manual, Assisted, and Autonomous policy configurations; MockCRA screening webhook reconciliation; background job deduplication and orphan job reaping. |
 | `tests/integration/services.int.test.ts` | `showings`, `maintenance`, `documents`, `retention`, `retention across tenants` | 9 | Concurrent showing slot reservations; maintenance ticket dispatch lifecycle; PDF document rendering and retrieval; cross-tenant PII retention purges complying with statutory windows. |
-| **Total Integration** | **6 files** | **72** | **100% Passed (Duration: ~27.5 s)** |
+| **Total Integration** | **6 files** | **72** | **100% Passed (Duration: ~18.9 s)** |
 
 ---
 
@@ -95,7 +102,7 @@ The Playwright browser suite executes against a full production build (`next sta
 | `tests/e2e/platform.spec.ts` | **5. Agency Theming Isolation** | ~670 ms | Navigates to Bayview (`/bayview`) and Peninsula (`/peninsula`); inspects computed CSS variable `--brand` on root container; validates terracotta (`#9a3412`) vs. pine green (`#1f4d45`) color isolation and independent tenant headings. |
 | `tests/e2e/showings.spec.ts` | **6. Showing Booking Workflow** | ~2.0 s | Prospect submits Indication of Interest (IOI); books tour slot on `/bayview/listings/{slug}/schedule`; receives confirmation email containing RFC 5545 `.ics` calendar invitation (`BEGIN:VCALENDAR`, `UID:showing-...@leasing.test`, `SEQUENCE:0`, `STATUS:CONFIRMED`). |
 | `tests/e2e/maintenance.spec.ts` | **7. Maintenance Media & Board Assignment** | ~2.6 s | Resident submits repair request with in-memory Sharp PNG photo attachment and permission to enter; verifies thumbnail preview, permission badge, and visual status stepper `Received`; staff logs into desk (`/dashboard/bayview/maintenance`), verifies thumbnail visibility, and assigns ticket to technician (Ray Mendes); asserts status update email delivery in Mailpit (HTTP port 8041) with subject containing "Update:" and body "assigned to a technician"; reloads resident portal ticket page and confirms stepper advances to `Assigned` (`ASSIGNED`). |
-| **Total E2E** | **4 spec files** | **7 journeys** | **100% Passed (Duration: ~28.1 s)** |
+| **Total E2E** | **4 spec files** | **7 journeys** | **100% Passed (Duration: ~25.2 s)** |
 
 ---
 
@@ -276,4 +283,4 @@ pnpm pii:rotate --dry-run
 make record-tests
 ```
 
-**Result**: The platform satisfies requirements **R1**, **R2**, **R3**, **R4**, and Phase 2 Directives. All 172 automated tests (93 unit, 72 integration, 7 Playwright E2E) passed 100%, the offline run blocked outbound traffic with zero egress, and the demonstration steps are fully certified.
+**Result**: In the 2026-06-01 local verification run, all 172 automated tests (93 unit, 72 integration, 7 Playwright E2E) passed, and the offline E2E verified blocked egress for the web server and worker. This does not certify `pnpm build`, PII dry-run commands, GitHub Actions, or any hosted deployment in this pass; see the recorded checks and limitations above.
