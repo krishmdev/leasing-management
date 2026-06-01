@@ -95,13 +95,16 @@ const withTimeout = (signal?: AbortSignal) => (signal ? AbortSignal.any([signal,
 
 export async function analyzeReference(meta: Omit<CallMeta, "purpose" | "promptVersion">, input: ReferenceDTO, signal?: AbortSignal) {
   const dto = ReferenceDTO.parse(input);
-  let r;
+  let r: { value: ReferenceAnalysis; provider: string; model: string; cached: boolean };
+  let fallback = false;
   try {
     r = await call({ ...meta, purpose: "reference", promptVersion: REFERENCE_PROMPT_VERSION }, dto, ReferenceAnalysis, referencePrompt(dto), () => offlineAnalyzeReference(dto), withTimeout(signal));
   } catch (e) {
     if (signal?.aborted) throw e;
     // Model outage: score the text with the offline lexicon rather than stall the application.
-    return { value: offlineAnalyzeReference(dto), provider: "offline", model: "lexicon-v1 (fallback)", cached: false, guardTripped: false, promptVersion: REFERENCE_PROMPT_VERSION, fallback: true };
+    // The result goes through the same output guard and quote drop below.
+    r = { value: offlineAnalyzeReference(dto), provider: "offline", model: "lexicon-v1 (fallback)", cached: false };
+    fallback = true;
   }
   // Output guard: evidence quotes are shown to staff, so they get the same scan as inputs.
   const tripped = r.value.evidenceQuotes.some(mentionsProtected);
@@ -109,7 +112,7 @@ export async function analyzeReference(meta: Omit<CallMeta, "purpose" | "promptV
   // dropped, so they never reach step outputs or the reference row. Only the LlmCall log
   // keeps them, and the retention purge clears that.
   const value = { ...r.value, evidenceQuotes: [] };
-  return { ...r, value, guardTripped: tripped, promptVersion: REFERENCE_PROMPT_VERSION, fallback: false };
+  return { ...r, value, guardTripped: tripped, promptVersion: REFERENCE_PROMPT_VERSION, fallback };
 }
 
 export async function writeRationale(meta: Omit<CallMeta, "purpose" | "promptVersion">, input: RationaleDTO, signal?: AbortSignal) {
