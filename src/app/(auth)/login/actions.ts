@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/server/auth";
 import { staffMemberships } from "@/server/session";
+import { homeFor } from "@/server/access";
 import type { FormState } from "@/lib/forms";
 
 const safeNext = (n: FormDataEntryValue | null) => (typeof n === "string" && n.startsWith("/") && !n.startsWith("//") ? n : null);
@@ -23,7 +24,7 @@ export async function staffSignIn(_: FormState, fd: FormData): Promise<FormState
   const next = safeNext(fd.get("next"));
   if (next) redirect(next);
   const m = await staffMemberships(userId);
-  redirect(m[0] ? `/dashboard/${m[0].organization.slug}` : "/");
+  redirect(m[0] ? homeFor(m[0].organization.slug, m[0].role) : "/");
 }
 
 export async function sendMagicLink(_: FormState, fd: FormData): Promise<FormState> {

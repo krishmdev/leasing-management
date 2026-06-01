@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireStaff } from "@/server/session";
+import { can, homeFor } from "@/server/access";
 import { dashboardMetrics } from "@/server/domain/metrics/metrics";
 import { Card, CardHeader, PageHeader, Stat } from "@/components/ui";
 import { FunnelBars } from "@/components/charts/FunnelBars";
@@ -14,7 +16,9 @@ const pct = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`
 
 export default async function Overview({ params }: { params: Promise<{ agencySlug: string }> }) {
   const { agencySlug } = await params;
-  const ctx = await requireStaff(agencySlug, "metrics.read");
+  const base = await requireStaff(agencySlug);
+  if (!can(base.role, "metrics.read")) redirect(homeFor(agencySlug, base.role));
+  const ctx = base;
   const m = await dashboardMetrics(ctx.tdb, new Date(await requestTime()));
   return (
     <>

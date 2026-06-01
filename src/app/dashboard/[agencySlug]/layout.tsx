@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireStaff, staffMemberships } from "@/server/session";
 import { DeskNav } from "@/components/desk/DeskNav";
 import { signOut } from "@/app/(auth)/login/actions";
-import { can } from "@/server/access";
+import { can, DESK_SECTIONS } from "@/server/access";
 
 export const metadata: Metadata = { title: { default: "Desk", template: "%s · Desk" } };
 
@@ -15,18 +15,8 @@ export default async function DeskLayout({ children, params }: { children: React
     ctx.tdb.maintenanceTicket.count({ where: { urgency: "EMERGENCY", status: { notIn: ["RESOLVED", "CLOSED", "CANCELED"] } } }),
   ]);
   const base = `/dashboard/${agencySlug}`;
-  const items = [
-    { href: base, label: "Overview", show: can(ctx.role, "metrics.read") },
-    { href: `${base}/pipeline`, label: "Pipeline", show: can(ctx.role, "applications.read") },
-    { href: `${base}/applications`, label: "Applications", show: can(ctx.role, "applications.read") },
-    { href: `${base}/approvals`, label: "Approvals", badge: approvals, show: can(ctx.role, "applications.decide") },
-    { href: `${base}/showings`, label: "Showings", show: can(ctx.role, "showings.manage") },
-    { href: `${base}/listings`, label: "Listings", show: can(ctx.role, "listings.write") },
-    { href: `${base}/maintenance`, label: "Maintenance", badge: emergencies, badgeTone: "bad" as const, show: can(ctx.role, "maintenance.read") },
-    { href: `${base}/residents`, label: "Residents", show: can(ctx.role, "residents.read") },
-    { href: `${base}/audit`, label: "Audit log", show: can(ctx.role, "audit.read") },
-    { href: `${base}/settings`, label: "Settings", show: can(ctx.role, "settings.write") },
-  ].filter((i) => i.show);
+  const badges: Record<string, { badge: number; badgeTone?: "bad" }> = { "/approvals": { badge: approvals }, "/maintenance": { badge: emergencies, badgeTone: "bad" } };
+  const items = DESK_SECTIONS.filter((x) => can(ctx.role, x.perm)).map((x) => ({ href: `${base}${x.path}`, label: x.label, ...badges[x.path] }));
   return (
     <div className="min-h-dvh bg-paper text-[14px] text-ink">
       <DeskNav

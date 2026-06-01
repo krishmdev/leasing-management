@@ -33,3 +33,23 @@ export class ForbiddenError extends Error {
 export function assertCan(role: string, perm: Permission) {
   if (!can(role, perm)) throw new ForbiddenError(perm);
 }
+
+/** Desk sections in nav order, with the permission each needs. */
+export const DESK_SECTIONS: { path: string; label: string; perm: Permission }[] = [
+  { path: "", label: "Overview", perm: "metrics.read" },
+  { path: "/pipeline", label: "Pipeline", perm: "applications.read" },
+  { path: "/applications", label: "Applications", perm: "applications.read" },
+  { path: "/approvals", label: "Approvals", perm: "applications.decide" },
+  { path: "/showings", label: "Showings", perm: "showings.manage" },
+  { path: "/listings", label: "Listings", perm: "listings.write" },
+  { path: "/maintenance", label: "Maintenance", perm: "maintenance.read" },
+  { path: "/residents", label: "Residents", perm: "residents.read" },
+  { path: "/audit", label: "Audit log", perm: "audit.read" },
+  { path: "/settings", label: "Settings", perm: "settings.write" },
+];
+
+/** Where a role lands when it signs in: its first permitted section. */
+export function homeFor(slug: string, role: string) {
+  const s = DESK_SECTIONS.find((x) => can(role, x.perm));
+  return `/dashboard/${slug}${s?.path ?? "/no-access"}`;
+}

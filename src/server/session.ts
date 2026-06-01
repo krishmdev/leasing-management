@@ -5,7 +5,7 @@ import { cache } from "react";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { tenantDb } from "@/server/tenant";
-import { assertCan, type Permission, type Role } from "@/server/access";
+import { can, type Permission, type Role } from "@/server/access";
 
 export const getSession = cache(async () => auth().api.getSession({ headers: await headers() }));
 
@@ -28,7 +28,8 @@ export const requireStaff = cache(async (slug: string, perm?: Permission): Promi
   const member = await db().member.findFirst({ where: { organizationId: org.id, userId: session.user.id } });
   if (!member) notFound();
   const role = member.role as Role;
-  if (perm) assertCan(role, perm);
+  // A section this role can't use: send them to a page that says so, rather than throwing.
+  if (perm && !can(role, perm)) redirect(`/dashboard/${slug}/no-access`);
   return {
     agencyId: org.id,
     agencySlug: org.slug,
