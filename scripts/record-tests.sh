@@ -1,21 +1,19 @@
 #!/bin/sh
 # Runs unit, integration and offline e2e suites and writes the counts to results/tests.json.
-#   OFFLINE_RUN=<egress-blocking wrapper> scripts/record-tests.sh
+#   scripts/record-tests.sh            (macOS: uses scripts/offline-run)
+#   OFFLINE_WRAPPER=<wrapper> scripts/record-tests.sh
 set -eu
 cd "$(dirname "$0")/.."
-if [ -z "${OFFLINE_RUN:-}" ]; then
-  echo "OFFLINE_RUN must name the egress-blocking wrapper; refusing to record incomplete results." >&2
-  exit 2
-fi
-if [ ! -x "$OFFLINE_RUN" ]; then
-  echo "OFFLINE_RUN is not executable: $OFFLINE_RUN" >&2
+OFFLINE_WRAPPER="${OFFLINE_WRAPPER:-./scripts/offline-run}"
+if [ ! -x "$OFFLINE_WRAPPER" ]; then
+  echo "OFFLINE_WRAPPER is not executable: $OFFLINE_WRAPPER; refusing to record incomplete results." >&2
   exit 2
 fi
 mkdir -p storage results
 rm -f storage/unit.json storage/int.json storage/e2e-results.json
 pnpm exec vitest run --reporter=json --outputFile=storage/unit.json
 pnpm exec vitest run -c vitest.integration.config.mts --reporter=json --outputFile=storage/int.json
-E2E_OFFLINE=1 "$OFFLINE_RUN" ./scripts/e2e.sh
+E2E_OFFLINE=1 "$OFFLINE_WRAPPER" ./scripts/e2e.sh
 node -e '
 const fs = require("fs");
 const v = (f) => {

@@ -1,0 +1,7 @@
+#!/bin/sh
+# macOS: run a command (and every child process) with outbound network denied except
+# localhost and unix sockets, using scripts/offline.sb with sandbox-exec. Provider keys are
+# unset so nothing even tries.
+here="$(cd "$(dirname "$0")" && pwd)"
+exec env -u OPENAI_API_KEY -u GEMINI_API_KEY -u GOOGLE_API_KEY -u RESEND_API_KEY \
+  sandbox-exec -f "$here/offline.sb" "$@"

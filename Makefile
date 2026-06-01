@@ -1,7 +1,8 @@
 # Two phases. `make setup` needs the network (packages, browser, images, build). Everything
 # after that runs offline; `make e2e-offline` proves it by running the whole app stack inside
-# an egress-blocking sandbox (set OFFLINE_RUN to the wrapper command, see README).
-OFFLINE_RUN ?= $(shell [ -x ../.tools/offline-run ] && echo ../.tools/offline-run || echo .tools/offline-run)
+# an egress-blocking sandbox. On macOS that's scripts/offline-run (sandbox-exec with
+# scripts/offline.sb); set OFFLINE_WRAPPER to use something else.
+OFFLINE_WRAPPER ?=
 
 .PHONY: setup up down demo test test-int e2e e2e-offline record-tests lint typecheck check clean
 
@@ -43,11 +44,10 @@ e2e: up
 	./scripts/e2e.sh
 
 e2e-offline: up
-	@test -n "$(OFFLINE_RUN)" || { echo "set OFFLINE_RUN to an egress-blocking wrapper (e.g. a sandbox-exec script)"; exit 2; }
-	E2E_OFFLINE=1 $(OFFLINE_RUN) ./scripts/e2e.sh
+	E2E_OFFLINE=1 $(or $(OFFLINE_WRAPPER),./scripts/offline-run) ./scripts/e2e.sh
 
 record-tests: up
-	OFFLINE_RUN="$(OFFLINE_RUN)" ./scripts/record-tests.sh
+	OFFLINE_WRAPPER="$(or $(OFFLINE_WRAPPER),./scripts/offline-run)" ./scripts/record-tests.sh
 
 clean:
 	docker compose down -v

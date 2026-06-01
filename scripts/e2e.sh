@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs the whole stack (Next production server + worker) and the Playwright suite against a
 # separate database. Meant to be wrapped in an egress-blocking sandbox, e.g.
-#   $OFFLINE_RUN scripts/e2e.sh
+#   E2E_OFFLINE=1 scripts/offline-run scripts/e2e.sh
 # Postgres and Mailpit must already be up (docker compose up -d --wait).
 set -eu
 cd "$(dirname "$0")/.."
