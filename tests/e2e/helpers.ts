@@ -38,6 +38,9 @@ export async function staffLogin(page: Page, email: string) {
   await page.fill("#password", "demo-password-2026");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard\//);
+  // The landing has to render for this role, not just redirect somewhere.
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByText(/something went wrong|no access/i)).toHaveCount(0);
 }
 
 /** Request a magic link and follow it from Mailpit. */

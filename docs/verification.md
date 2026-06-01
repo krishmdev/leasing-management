@@ -73,6 +73,13 @@ that image was built and run locally under Docker Desktop (linux/arm64) with the
 as the CI job, and all Playwright tests passed, the canary reporting `blocked` in both
 processes.
 
+`storage/e2e-web.log` shows a handful of `Error: The destination stream closed early.` lines
+per run. These come from React's server-component renderer when the browser drops a response
+while it's still streaming, which happens when Playwright navigates on before a page or a
+prefetch has finished. Aborting a streamed page request by hand after its first chunk
+reproduces the same line against the production server. The response already sent is
+unaffected, and none of these lines comes with a failed request in the tests.
+
 ## Live model run
 
 `results/live-smoke.json`, recorded 2026-06-01 with `scripts/live-smoke.ts`:
