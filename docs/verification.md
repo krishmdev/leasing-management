@@ -20,7 +20,10 @@ What the suites cover:
 
 - **Unit** (`tests/unit/`):
   - rubric personas and threshold edges, the 4.5-point cap on model influence, and fairness
-    invariance (fast-check);
+    invariance: fast-check builds 1,000 references from names, pronouns, modifiers ("late",
+    "elderly", "devout") and inflected protected terms, and the offline score has to be
+    identical with and without them. This only covers the lexicon's terms and the offline
+    scorer; a live model's invariance isn't proven;
   - protected-term redaction, including inflected forms that aren't in the lexicon verbatim;
   - the DTO allowlist, automation policy (declines never automatic), and criteria validation;
   - DST-safe slot generation, `.ics` output, field encryption and AAD binding, blind index,

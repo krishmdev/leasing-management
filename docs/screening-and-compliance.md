@@ -23,7 +23,12 @@ The screening provider collects SSN and DOB on its own page. The platform receiv
 - identity and income verification flags;
 - a report id;
 - the score, score model, range, key factors and date. These are kept only for the
-  adverse-action disclosure, encrypted, and purged after 120 days.
+  adverse-action disclosure, encrypted (on the result and on the notice), and purged after
+  120 days along with the notice PDF.
+
+Applicants are told not to type an SSN or date of birth into free-text fields. Reference text,
+interest messages and repair requests that look like an SSN are refused, and the redactor
+masks SSN- and date-of-birth-shaped strings before any text reaches a model.
 
 ## The rubric
 
@@ -63,13 +68,15 @@ rows, and an application is scored against the version locked at submit.
 
 - A declined or conditionally approved application gets a notice. It lists the chosen reasons,
   each tagged with its basis: consumer report, third party, or the applicant's own information.
-- When a consumer report exists, the notice gives:
+- When at least one chosen reason is based on the consumer report, the notice gives the
+  §615(a) block (a report that exists but didn't drive the outcome isn't cited):
   - the CRA's name, address, phone and website;
   - a statement that the CRA didn't make the decision;
   - the right to a free report within 60 days and the right to dispute;
   - the score used, its range, up to four key factors and its date.
-- When landlord references contributed, it also states the §615(b) right to ask about that
-  information.
+- When a third-party reason (landlord references) was chosen, it adds a courtesy disclosure
+  modeled on §615(b): the applicant may ask in writing for the nature of that information.
+  Whether §615(b) strictly applies here is a question for counsel.
 - A conditional approval notice says it's approval on less favorable terms and lists the
   conditions.
 - The wording in `src/worker/documents/templates.tsx` is a sample; verify with counsel.

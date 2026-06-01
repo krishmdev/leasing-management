@@ -53,19 +53,24 @@ change they describe.
 The nightly `retention.purge` job (and `pnpm pii:purge`) works to these defaults. Confirm the
 periods with counsel; the FTC Disposal Rule is 16 CFR 682.
 
-- **Credit detail.** Removed 120 days after a decision, or after an application closed without
-  one.
+- **Credit detail, after 120 days** (from the decision, or from closing without one): the
+  encrypted score and key factors, score model, range and date; the score block encrypted on the
+  adverse-action notice; and the notice PDF file.
 - **Declined or withdrawn applicants, after 730 days:**
   - encrypted name, phone, income and residence fields;
   - reference free text and model analysis;
-  - redacted prompt copies;
+  - redacted prompt copies, stored model outputs and step outputs that carried them;
+  - the rationale text, interest messages, and consent IP and user agent;
+  - every PDF for the application (lease, notice, decision letters);
   - the lead's contact fields, when they have no other application or residency.
-- **What stays.** The decision, reason codes and notice.
+- **What stays.** Status, decision, reason codes, the notice row, the credit band and counts,
+  and each document's sha256, so the decision can still be shown to have been made and sent.
 - **Better Auth rows.** An applicant's user, session, account and verification rows are deleted
   only if the same user has no staff membership, other application or residency at any agency.
 
 ## Known gaps
 
-- There's no Postgres row-level security; isolation is enforced in the application.
+- There's no Postgres row-level security; isolation is enforced in the application. The raw-SQL
+  check is a heuristic, not a boundary.
 - Better Auth stores `user.email` in plaintext (the purge removes it with the applicant).
 - Uploads and PDFs are on local disk (`storage/`), not encrypted object storage.

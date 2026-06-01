@@ -31,10 +31,15 @@ Every tenant table has `agencyId`, and there are three layers on top of it:
    - adds `agencyId` to every where clause and create;
    - refuses nested relation writes, and refuses any include/select/where path that reaches a
      tenant model through a global one (Organization, User, Member);
-   - refuses raw SQL that doesn't filter on this tenant's `agencyId`.
+   - checks raw SQL with a text heuristic: the query has to mention `agencyId` bound to this
+     tenant. That is a lint that catches mistakes, not isolation; a query can pass it and still
+     read across tenants.
 2. Composite foreign keys `(agencyId, xId) -> (agencyId, id)` on every tenant-to-tenant
    relation, so a row can't point at another agency's row.
 3. ESLint bans raw queries in domain code outside `tenantRaw`.
+
+The isolation guarantee rests on the first two layers for Prisma queries. Raw SQL relies on
+review plus the heuristic above.
 
 ## Correctness under retries
 
@@ -67,7 +72,7 @@ needs doing.
   - a partial unique index allows one ACTIVE row per unit;
   - an exclusion constraint forbids overlapping ACTIVE windows;
   - another exclusion constraint forbids overlapping FUTURE/CURRENT/NOTICE residencies.
-- **Signing** (`src/server/domain/leases/sign.ts):
+- **Signing** (`src/server/domain/leases/sign.ts`):
   1. Lock the unit, then the lease.
   2. If a signature already exists, return it.
   3. Otherwise check the hold, the token expiry and the reviewed document's hash.

@@ -83,9 +83,10 @@ flowchart LR
 The applicant enters their SSN and date of birth on the screening company's page. Those details
 follow the dotted edge in the diagram and never pass through the platform.
 
-See [the architecture section](#architecture), [the screening workflow](#the-screening-agent),
-[liability and privacy](#liability-and-privacy), [limitations](#limitations), and the
-[verification log](docs/verification.md).
+More detail lives in [docs/architecture.md](docs/architecture.md) (tenancy, retries, signing),
+[docs/screening-and-compliance.md](docs/screening-and-compliance.md) (rubric, notices, fairness
+checks), [docs/security-and-data-handling.md](docs/security-and-data-handling.md) (encryption,
+retention), and [docs/verification.md](docs/verification.md) (what was run, and how).
 
 ## Quickstart (offline, no keys)
 
@@ -202,8 +203,9 @@ committing its result. Postgres records the state needed to handle retries:
 |---|---|---|---|
 | SSN, date of birth | Only on the screening provider's page | Never sent to us | n/a |
 | Applicant name, phone, landlord contacts, reference text | Postgres `*Enc` columns | AES-256-GCM, bound to the record's agency, model, id and field | Declined or withdrawn: 730 days, then purged |
-| Credit score and key factors | `ScreeningResult.creditScoreEnc` | Encrypted; used only for the adverse-action disclosure | 120 days after decision or closing |
-| Credit band, counts, report id | `ScreeningResult` | Tenant-scoped | With the decision record |
+| Credit score and key factors | `ScreeningResult.creditScoreEnc`, `keyFactorsEnc`; the notice's `craScoreEnc` | Encrypted; used only for the adverse-action disclosure | 120 days after decision or closing; the notice PDF is deleted then too |
+| Application PDFs, prompt copies, model outputs, rationale text | `storage/`, `LlmCall`, `AgentStep`, `Recommendation` | Tenant-scoped | Declined or withdrawn: 730 days, then deleted or blanked |
+| Credit band, counts, report id; status, decision, reason codes, notice row, PDF hashes | `ScreeningResult`, `Application`, `Decision`, `AdverseActionNotice`, `GeneratedDocument` | Tenant-scoped | Kept as the decision record |
 | Audit log | `AuditLog` | Append-only (a trigger blocks UPDATE, DELETE, TRUNCATE); no PII in metadata | Kept |
 
 The protected-class lexicon (FHA, FEHA/Unruh, criminal history) catches plurals, demonyms,
@@ -227,7 +229,9 @@ model's output the same way. The application never asks for protected-class data
     request body.
 
 `results/live-smoke.json` records one live run of `gemini-3.5-flash-lite` on three references,
-one rationale and three tickets. It found:
+one rationale and three tickets. The later re-run in the file was answered from the `LlmCall`
+cache (entries marked `cached: true`), so it replays the first run's outputs rather than being a
+second live call. It found:
 
 - The model's scores moved the rubric by at most one point compared with the offline lexicon.
 - The redacted reference still produced a sensible score.
@@ -244,8 +248,9 @@ one rationale and three tickets. It found:
 - **E-signature.** Typed-name e-signature with a certificate page, not DocuSign.
 - **Email.** Only SMTP to Mailpit was exercised. The Resend transport is unit-tested against a
   fake HTTP server and has never sent real mail.
-- **Tenant isolation** is enforced in the application (a scoped Prisma client, composite foreign
-  keys, guarded raw SQL). Postgres row-level security would be the next layer and isn't built.
+- **Tenant isolation** is enforced in the application: a scoped Prisma client and composite
+  foreign keys. The raw-SQL guard is a text heuristic that catches mistakes; it isn't an
+  isolation boundary. Postgres row-level security would be the next layer and isn't built.
 - **Better Auth tables.** `user.email` and the magic-link verification rows are plaintext;
   they're deleted by the retention purge along with the applicant.
 - **Key rotation.** `pnpm pii:rotate` re-encrypts under the active key. Because the envelope
