@@ -8,7 +8,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
  */
 export function MovesChart({ data }: { data: { month: string; moveIns: number; moveOuts: number }[] }) {
   const last = data.at(-1);
-  const fmt = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const fmt = (m: string) => `${new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" })} '${m.slice(2, 4)}`;
   // When both series end on the same value, nudge the labels apart instead of overprinting.
   const tie = last && last.moveIns === last.moveOuts;
   const endLabel = (text: string, dy: number) =>

@@ -32,7 +32,7 @@ export default async function Overview({ params }: { params: Promise<{ agencySlu
         <Stat label="Vacancy loss to date" value={usd(m.vacancyLossCents)} sub={`${m.vacantUnits} vacant · ${m.vacantDays} unit-days`} />
         <Stat label="T12 turnover" value={pct(m.t12Turnover)} sub={`${m.moveOuts12} move-outs / ${m.units} units`} />
         <Stat label="Showing no-shows" value={pct(m.noShowRate)} sub={`of ${m.showingsAttended} past showings`} />
-        <Stat label="Screening turnaround" value={m.turnaroundH == null ? "—" : `${m.turnaroundH.toFixed(1)}h`} sub={`median, ${m.screenedCount} reports`} />
+        <Stat label="Screening turnaround" value={m.turnaroundH == null ? "—" : m.turnaroundH < 1 ? `${Math.max(1, Math.round(m.turnaroundH * 60))} min` : `${m.turnaroundH.toFixed(1)}h`} sub={`median, ${m.screenedCount} reports`} />
         <Stat label="Maintenance SLA met" value={pct(m.sla.rate)} tone={m.sla.rate != null && m.sla.rate < 0.9 ? "warn" : undefined} sub={`${m.sla.onTime} of ${m.sla.resolved} resolved`} />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">

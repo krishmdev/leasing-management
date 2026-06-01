@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
 import { cx } from "@/lib/cx";
 import { moveOpportunityAction } from "../actions";
@@ -9,7 +10,7 @@ const STAGES = [
   ["SHOWING", "Showing"],
   ["APPLIED", "Applied"],
   ["SCREENED", "Screened"],
-  ["DECISION", "Decided"],
+  ["DECISION", "Decision made"],
   ["LEASE_SIGNED", "Lease signed"],
   ["LOST", "Lost"],
 ] as const;
@@ -22,6 +23,7 @@ interface CardT {
   name: string;
   unit: string;
   days: number;
+  applicationId: string | null;
 }
 
 export function Kanban({ slug, cards }: { slug: string; cards: CardT[] }) {
@@ -50,7 +52,8 @@ export function Kanban({ slug, cards }: { slug: string; cards: CardT[] }) {
           <button onClick={() => setToast(null)} className="text-2xs underline">dismiss</button>
         </div>
       )}
-      <div className="grid auto-cols-[minmax(210px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-3">
+      <div className="relative">
+      <div className="grid auto-cols-[minmax(210px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-3 pr-6">
         {STAGES.map(([key, label]) => {
           const col = optimistic.filter((c) => c.stage === key);
           const droppable = drag ? canMove(drag.stage, key) : false;
@@ -76,7 +79,11 @@ export function Kanban({ slug, cards }: { slug: string; cards: CardT[] }) {
                     onDragEnd={() => setDrag(null)}
                     className="cursor-grab rounded-md border border-line bg-surface p-2 shadow-[0_1px_0_rgba(0,0,0,0.04)] active:cursor-grabbing"
                   >
-                    <p className="text-[13px] font-medium">{c.name}</p>
+                    {c.applicationId ? (
+                      <Link href={`/dashboard/${slug}/applications/${c.applicationId}`} className="text-[13px] font-medium underline-offset-2 hover:underline">{c.name}</Link>
+                    ) : (
+                      <p className="text-[13px] font-medium">{c.name}</p>
+                    )}
                     <p className="truncate text-2xs text-muted">{c.unit}</p>
                     <div className="mt-1.5 flex items-center justify-between">
                       <span className={cx("font-mono text-2xs", c.days > 7 ? "text-warn" : "text-muted")}>{c.days}d in stage</span>
@@ -87,7 +94,7 @@ export function Kanban({ slug, cards }: { slug: string; cards: CardT[] }) {
                         id={`mv-${c.id}`}
                         value=""
                         onChange={(e) => e.target.value && doMove(c, e.target.value)}
-                        className="rounded border border-line bg-paper px-1 text-2xs text-ink-2"
+                        className="min-h-7 rounded border border-line bg-paper px-1 text-2xs text-ink-2"
                         aria-label={`Move ${c.name}`}
                       >
                         <option value="">Move…</option>
@@ -102,6 +109,9 @@ export function Kanban({ slug, cards }: { slug: string; cards: CardT[] }) {
             </section>
           );
         })}
+      </div>
+      {/* scroll hint on narrow screens */}
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-paper to-transparent xl:hidden" />
       </div>
     </div>
   );
