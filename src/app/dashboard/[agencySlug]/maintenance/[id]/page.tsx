@@ -75,8 +75,8 @@ export default async function Ticket({ params }: { params: Promise<{ agencySlug:
           <Card>
             <CardHeader title="Triage and SLA" />
             <dl className="space-y-1 p-4 text-[13px]">
-              <div className="flex justify-between"><dt className="text-muted">Source</dt><dd>{t.triageSource?.toLowerCase() ?? "—"}</dd></div>
-              {ai && <div className="flex justify-between"><dt className="text-muted">Classifier said</dt><dd>{human(ai.category ?? "")} · {human(ai.urgency ?? "")} · {Math.round((ai.confidence ?? 0) * 100)}%</dd></div>}
+              <div className="flex justify-between gap-3"><dt className="text-muted">Set by</dt><dd className="text-right">{{ RULE: "Safety rule", LLM: "Language model", OFFLINE: "Keyword classifier", HUMAN: "Staff" }[t.triageSource ?? ""] ?? "—"}</dd></div>
+              {ai && <div className="flex justify-between gap-3"><dt className="text-muted">Automatic guess</dt><dd className="text-right">{human(ai.category ?? "")}, {human(ai.urgency ?? "")} urgency{(ai.confidence ?? 0) < 0.5 ? " (low confidence)" : ""}</dd></div>}
               <div className="flex justify-between"><dt className="text-muted">Respond by</dt><dd className={t.respondBreached ? "text-bad" : ""}>{when(t.slaRespondBy)}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">First response</dt><dd>{when(t.firstRespondedAt)}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">Resolve by</dt><dd className={t.resolveBreached ? "text-bad" : ""}>{when(t.slaResolveBy)}</dd></div>

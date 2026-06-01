@@ -27,13 +27,28 @@ export function TicketControls({ slug, ticketId, next, assignee, staff }: { slug
             )}
           </ActionForm>
           <div className="flex flex-wrap gap-2">
-            {next.filter((s) => s !== "ASSIGNED").map((s) => (
+            {next.filter((s) => s !== "ASSIGNED" && s !== "CANCELED").map((s) => (
               <ActionForm key={s} action={ticketStatusAction.bind(null, slug, ticketId, s)}>
                 {() => <SubmitButton variant={s === "RESOLVED" ? "primary" : "secondary"} size="sm">{LABEL[s] ?? s}</SubmitButton>}
               </ActionForm>
             ))}
             {next.length === 0 && <p className="text-[13px] text-muted">No further steps.</p>}
           </div>
+          {next.includes("CANCELED") && (
+            <details className="text-[13px]">
+              <summary className="inline-flex min-h-8 cursor-pointer items-center text-bad">Cancel ticket…</summary>
+              <ActionForm action={ticketStatusAction.bind(null, slug, ticketId, "CANCELED")} className="mt-2 space-y-2 rounded-md bg-bad-bg p-3">
+                {() => (
+                  <>
+                    <p>The resident is told the request was canceled. Add a note saying why.</p>
+                    <label htmlFor="cancel-note" className="sr-only">Reason</label>
+                    <Textarea id="cancel-note" name="note" required className="min-h-14" />
+                    <SubmitButton variant="danger" size="sm">Cancel ticket</SubmitButton>
+                  </>
+                )}
+              </ActionForm>
+            </details>
+          )}
         </div>
       </Card>
       <Card>

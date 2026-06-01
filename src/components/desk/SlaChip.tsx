@@ -1,3 +1,4 @@
+import { Clock, Pause } from "lucide-react";
 import { slaState, type SlaClock } from "@/server/domain/maintenance/sla";
 import { cx } from "@/lib/cx";
 
@@ -18,12 +19,17 @@ export function SlaChip({ t, now }: { t: SlaClock; now: Date }) {
     "n/a": "bg-black/5 text-muted",
   }[s.resolve];
   if (s.respond === "breached" && !t.firstRespondedAt) {
-    return <span className="inline-flex whitespace-nowrap rounded bg-bad px-1.5 py-0.5 font-mono text-2xs text-white" title="No response yet and the response deadline has passed">response late</span>;
+    return (
+      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-bad px-1.5 py-0.5 font-mono text-2xs text-white" title="No response yet and the response deadline has passed">
+        <Clock aria-hidden className="size-3" /> response late
+      </span>
+    );
   }
   const label =
     s.resolve === "breached" ? `${fmt(s.resolveMsLeft ?? 0)} over` : s.resolve === "paused" ? "paused" : s.resolve === "met" ? "met" : s.resolveMsLeft != null ? `${fmt(s.resolveMsLeft)} left` : "—";
   return (
     <span className={cx("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-2xs", style)} title={`Respond: ${s.respond}. Resolve: ${s.resolve}.`}>
+      {s.resolve === "breached" ? <Clock aria-hidden className="size-3" /> : s.resolve === "paused" ? <Pause aria-hidden className="size-3" /> : null}
       {label}
     </span>
   );

@@ -19,6 +19,7 @@ export function timeLabel(d: Date | string, tz = "America/Los_Angeles") {
 export function relative(from: Date, to = new Date()) {
   const mins = Math.round((from.getTime() - to.getTime()) / 60000);
   const abs = Math.abs(mins);
-  const s = abs < 60 ? `${abs}m` : abs < 60 * 48 ? `${Math.round(abs / 60)}h` : `${Math.round(abs / 1440)}d`;
+  if (abs < 1) return "just now";
+  const s = abs < 60 ? `${abs}m` : abs < 60 * 24 ? `${Math.round(abs / 60)}h` : `${Math.round(abs / 1440)}d`;
   return mins >= 0 ? `in ${s}` : `${s} ago`;
 }
