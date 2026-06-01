@@ -44,7 +44,7 @@ export interface BuildAdverseNoticeParams {
 }
 
 /**
- * Pure helper to build the CRA snapshot payload for adverse action and conditional notices.
+ * The CRA block for a notice. Pure, so the FCRA content rules are unit-testable.
  */
 export function buildAdverseNoticeSnapshot(params: BuildAdverseNoticeParams): AdverseNoticeSnapshot {
   const { kind, reasons, conditions = [], result, provider, craDisclosure } = params;
@@ -73,9 +73,8 @@ export function buildAdverseNoticeSnapshot(params: BuildAdverseNoticeParams): Ad
 }
 
 /**
- * Domain service to generate an adverse action or conditional approval notice.
- * Persists the notice record with craSnapshot and sentAt timestamp, then enqueues
- * document rendering and transactional email dispatch.
+ * Record an adverse-action (or conditional-approval) notice and queue its PDF and email, in the
+ * caller's decision transaction. sentAt stays empty: the email is only queued here.
  */
 export async function generateAdverseActionNotice(
   tx: TenantTx,
@@ -103,8 +102,6 @@ export async function generateAdverseActionNotice(
     score,
   });
 
-  const sentAt = new Date();
-
   await tx.adverseActionNotice.createMany({
     data: [{
       agencyId,
@@ -112,7 +109,6 @@ export async function generateAdverseActionNotice(
       reasonCodes: reasons as unknown as Prisma.InputJsonArray,
       basis: [...new Set(reasons.map((x) => x.basis))],
       craSnapshot: JSON.parse(JSON.stringify(craSnapshot)) as Prisma.InputJsonObject,
-      sentAt,
     }],
     skipDuplicates: true,
   });

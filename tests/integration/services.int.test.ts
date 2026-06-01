@@ -108,6 +108,7 @@ describe("documents", () => {
     expect(n.craSnapshot).toMatchObject({ usedCra: true, cra: { name: expect.stringContaining("MockCRA") }, score: { value: 548, range: [300, 850] } });
     const doc = await db().generatedDocument.findFirstOrThrow({ where: { applicationId: s.applicationId, kind: "ADVERSE_ACTION" } });
     expect(n.documentId).toBe(doc.id);
+    expect(n.sentAt).toBeInstanceOf(Date);
     // Delete the row and render again from the same outbox key: same bytes, same hash.
     const row = await db().outboxMessage.findUniqueOrThrow({ where: { idempotencyKey: doc.idempotencyKey } });
     await db().adverseActionNotice.update({ where: { id: n.id }, data: { documentId: null } });

@@ -124,7 +124,7 @@ describe("FCRA Adverse Notice Snapshot Builder", () => {
 });
 
 describe("generateAdverseActionNotice domain service", () => {
-  it("persists adverse notice with sentAt audit timestamp and enqueues document and email", async () => {
+  it("persists the notice (sentAt left for the email dispatcher) and enqueues document and email", async () => {
     const agencyId = uuidv7();
     const applicationId = uuidv7();
     const srResultId = uuidv7();
@@ -179,12 +179,12 @@ describe("generateAdverseActionNotice domain service", () => {
     expect(snapshot.score?.value).toBe(548);
     expect(snapshot.score?.band).toBe("POOR");
 
-    // Verify adverseActionNotice.createMany recorded sentAt timestamp
+    // sentAt is set by the outbox dispatcher once the email is accepted
     expect(mockCreateManyNotice).toHaveBeenCalledTimes(1);
     const noticePayload = mockCreateManyNotice.mock.calls[0][0].data[0];
     expect(noticePayload.agencyId).toBe(agencyId);
     expect(noticePayload.applicationId).toBe(applicationId);
-    expect(noticePayload.sentAt).toBeInstanceOf(Date);
+    expect(noticePayload.sentAt).toBeUndefined();
     expect(noticePayload.craSnapshot).toMatchObject({
       kind: "DECLINE",
       usedCra: true,

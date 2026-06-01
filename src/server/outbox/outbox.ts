@@ -130,6 +130,11 @@ export async function dispatchRow(row: OutboxRow, deps: DispatchDeps): Promise<D
     const { providerMessageId } = await t.send(msg, { idempotencyKey: row.idempotencyKey });
     faults.hit("outbox:after-send");
     await markDone(row, t.id, providerMessageId);
+    const p = row.payload as EmailPayload;
+    if (p.template === "application.adverse_action") {
+      // The FCRA notice counts as sent when its email is accepted, not when it was queued.
+      await db().adverseActionNotice.updateMany({ where: { applicationId: String(p.params.applicationId), sentAt: null }, data: { sentAt: new Date() } });
+    }
     return "done";
   } catch (e) {
     if (e instanceof SimulatedCrash) throw e;
