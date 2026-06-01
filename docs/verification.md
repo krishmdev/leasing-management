@@ -85,6 +85,9 @@ run locally; see the note at the end.
   - Triage agreed with the offline classifier on every category, and rated two tickets one
     urgency level higher.
 - The file includes the host manifest for the run.
+- The file was regenerated later the same day to trim the manifest. On that run the model calls
+  were answered from the `LlmCall` cache of the first run (same model and inputs, marked
+  `cached: true`), so the outputs are the first run's.
 
 Nothing else in the repository calls a live model; tests and the demo use the offline provider.
 
